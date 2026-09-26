@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-class AppTextField extends StatelessWidget {
+import '../../core/constants/app_colors.dart';
+
+class AppTextField extends StatefulWidget {
   const AppTextField({
     super.key,
     required this.controller,
@@ -11,12 +14,13 @@ class AppTextField extends StatelessWidget {
     this.textInputAction,
     this.onSubmitted,
     this.suffixIcon,
-    this.autofillHints,
     this.keyboardType,
     this.onChanged,
+    this.focusNode,
   });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final String label;
   final String? hint;
   final String? errorText;
@@ -24,9 +28,20 @@ class AppTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onSubmitted;
   final Widget? suffixIcon;
-  final Iterable<String>? autofillHints;
   final TextInputType? keyboardType;
   final ValueChanged<String>? onChanged;
+
+  @override
+  State<AppTextField> createState() => _AppTextFieldState();
+}
+
+class _AppTextFieldState extends State<AppTextField> {
+  static const _fieldStyle = TextStyle(
+    fontSize: 17,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textPrimary,
+    height: 1.35,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +49,7 @@ class AppTextField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          widget.label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w500,
@@ -42,17 +57,25 @@ class AppTextField extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         TextField(
-          controller: controller,
-          obscureText: obscureText,
-          textInputAction: textInputAction,
-          onSubmitted: onSubmitted,
-          onChanged: onChanged,
-          autofillHints: autofillHints,
-          keyboardType: keyboardType,
+          key: ValueKey('text_field_${widget.label}'),
+          controller: widget.controller,
+          focusNode: widget.focusNode,
+          obscureText: widget.obscureText,
+          autocorrect: !widget.obscureText,
+          enableSuggestions: !widget.obscureText,
+          smartDashesType: SmartDashesType.disabled,
+          smartQuotesType: SmartQuotesType.disabled,
+          enableInteractiveSelection: true,
+          style: _fieldStyle,
+          cursorColor: AppColors.textPrimary,
+          textInputAction: widget.textInputAction,
+          onSubmitted: widget.onSubmitted,
+          onChanged: widget.onChanged,
+          keyboardType: widget.keyboardType,
           decoration: InputDecoration(
-            hintText: hint ?? label,
-            errorText: errorText,
-            suffixIcon: suffixIcon,
+            hintText: widget.hint ?? widget.label,
+            errorText: widget.errorText,
+            suffixIcon: widget.suffixIcon,
           ),
         ),
       ],

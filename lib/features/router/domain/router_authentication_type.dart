@@ -1,0 +1,1 @@
+enum RouterAuthenticationType { unknown, attWifiFormsConfig }

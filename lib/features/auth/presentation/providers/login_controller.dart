@@ -1,102 +1,107 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class LoginState {
-  const LoginState({
-    this.username = '',
-    this.password = '',
-    this.obscurePassword = true,
+import '../../../../core/routing/app_router.dart';
+import '../../../../core/routing/app_routes.dart';
+import '../../../router/domain/router_authentication_state.dart';
+import '../../../router/domain/router_connection_state.dart';
+import '../../../router/presentation/providers/router_providers.dart';
+
+/// Result of a login connect attempt for the UI (no Riverpod rebuild of text fields).
+class LoginConnectOutcome {
+  const LoginConnectOutcome({
     this.usernameError,
     this.passwordError,
-    this.isSubmitting = false,
+    this.connectMessage,
+    this.connectMessageIsError = false,
+    this.unexpectedFailure = false,
+    this.didNavigate = false,
   });
 
-  final String username;
-  final String password;
-  final bool obscurePassword;
   final String? usernameError;
   final String? passwordError;
-  final bool isSubmitting;
+  final String? connectMessage;
+  final bool connectMessageIsError;
+  final bool unexpectedFailure;
+  final bool didNavigate;
+}
 
-  LoginState copyWith({
-    String? username,
-    String? password,
-    bool? obscurePassword,
-    String? usernameError,
-    String? passwordError,
-    bool? isSubmitting,
-    bool clearUsernameError = false,
-    bool clearPasswordError = false,
-  }) {
-    return LoginState(
-      username: username ?? this.username,
-      password: password ?? this.password,
-      obscurePassword: obscurePassword ?? this.obscurePassword,
-      usernameError: clearUsernameError
-          ? null
-          : (usernameError ?? this.usernameError),
-      passwordError: clearPasswordError
-          ? null
-          : (passwordError ?? this.passwordError),
-      isSubmitting: isSubmitting ?? this.isSubmitting,
-    );
+class LoginController {
+  LoginController(this._ref);
+
+  final Ref _ref;
+  var _connectInFlight = false;
+
+  Future<LoginConnectOutcome> connect({
+    required String usernameFromField,
+    required String passwordFromField,
+  }) async {
+    if (_connectInFlight) {
+      return const LoginConnectOutcome();
+    }
+
+    _connectInFlight = true;
+    try {
+      if (kDebugMode) {
+        debugPrint('[RouterConnect] Connect pressed');
+      }
+      final username = usernameFromField.trim();
+      final password = passwordFromField;
+
+      String? usernameError;
+      String? passwordError;
+
+      if (username.isEmpty) {
+        usernameError = 'Username is required';
+      }
+      if (password.isEmpty) {
+        passwordError = 'Password is required';
+      }
+
+      if (usernameError != null || passwordError != null) {
+        return LoginConnectOutcome(
+          usernameError: usernameError,
+          passwordError: passwordError,
+        );
+      }
+
+      try {
+        final outcome = await _ref
+            .read(routerRepositoryProvider)
+            .connect(username: username, password: password);
+
+        if (outcome.authenticationState ==
+            RouterAuthenticationState.authenticated) {
+          _ref.read(goRouterProvider).go(AppRoutes.routerConnectionTest);
+          return const LoginConnectOutcome(didNavigate: true);
+        }
+
+        final isError =
+            outcome.unexpectedError ||
+            outcome.connectionState == RouterConnectionState.unreachable ||
+            outcome.connectionState == RouterConnectionState.error ||
+            (outcome.failure != null &&
+                outcome.authenticationState !=
+                    RouterAuthenticationState.pendingApiIdentification);
+
+        return LoginConnectOutcome(
+          connectMessage: outcome.message,
+          connectMessageIsError: isError,
+          unexpectedFailure: outcome.unexpectedError,
+        );
+      } catch (_) {
+        return const LoginConnectOutcome(
+          connectMessage: 'An unexpected error occurred while connecting.',
+          connectMessageIsError: true,
+          unexpectedFailure: true,
+        );
+      }
+    } finally {
+      _connectInFlight = false;
+    }
   }
 }
 
-class LoginController extends Notifier<LoginState> {
-  @override
-  LoginState build() => const LoginState();
-
-  void setUsername(String value) {
-    state = state.copyWith(username: value, clearUsernameError: true);
-  }
-
-  void setPassword(String value) {
-    state = state.copyWith(password: value, clearPasswordError: true);
-  }
-
-  void togglePasswordVisibility() {
-    state = state.copyWith(obscurePassword: !state.obscurePassword);
-  }
-
-  Future<void> connect() async {
-    if (state.isSubmitting) {
-      return;
-    }
-
-    state = state.copyWith(isSubmitting: true);
-
-    final username = state.username.trim();
-    final password = state.password;
-
-    String? usernameError;
-    String? passwordError;
-
-    if (username.isEmpty) {
-      usernameError = 'Username is required';
-    }
-    if (password.isEmpty) {
-      passwordError = 'Password is required';
-    }
-
-    if (usernameError != null || passwordError != null) {
-      state = state.copyWith(
-        isSubmitting: false,
-        usernameError: usernameError,
-        passwordError: passwordError,
-      );
-      return;
-    }
-
-    // TODO: router authentication (Step 2)
-
-    state = state.copyWith(
-      isSubmitting: false,
-      clearUsernameError: true,
-      clearPasswordError: true,
-    );
-  }
-}
-
-final loginControllerProvider = NotifierProvider<LoginController, LoginState>(
-  LoginController.new,
-);
+final loginControllerProvider = Provider<LoginController>((ref) {
+  return LoginController(ref);
+});
