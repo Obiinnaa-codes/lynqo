@@ -3,9 +3,15 @@ class RouterStatus {
     this.batteryPercent,
     this.isCharging,
     this.batteryStatusLabel,
+    this.powerState,
+    this.batteryTemperatureC,
     this.signalStrength,
+    this.signalRsrp,
     this.networkType,
     this.connectionState,
+    this.carrierName,
+    this.accountType,
+    this.roaming,
     this.dataUsageBytes,
     this.dataLimitBytes,
     this.dataRemainingBytes,
@@ -14,6 +20,11 @@ class RouterStatus {
     this.planTitle,
     this.dataUsedSummary,
     this.dataLimitSummary,
+    this.dataRemainingSummary,
+    this.nextBillingDateLabel,
+    this.dataValidState,
+    this.wifiSsid,
+    this.wifiStatus,
     this.uploadSpeedBps,
     this.downloadSpeedBps,
     this.connectedDeviceCount,
@@ -22,9 +33,15 @@ class RouterStatus {
   final int? batteryPercent;
   final bool? isCharging;
   final String? batteryStatusLabel;
+  final String? powerState;
+  final int? batteryTemperatureC;
   final int? signalStrength;
+  final int? signalRsrp;
   final String? networkType;
   final String? connectionState;
+  final String? carrierName;
+  final String? accountType;
+  final bool? roaming;
   final int? dataUsageBytes;
   final int? dataLimitBytes;
   final int? dataRemainingBytes;
@@ -33,6 +50,11 @@ class RouterStatus {
   final String? planTitle;
   final String? dataUsedSummary;
   final String? dataLimitSummary;
+  final String? dataRemainingSummary;
+  final String? nextBillingDateLabel;
+  final String? dataValidState;
+  final String? wifiSsid;
+  final String? wifiStatus;
   final int? uploadSpeedBps;
   final int? downloadSpeedBps;
   final int? connectedDeviceCount;

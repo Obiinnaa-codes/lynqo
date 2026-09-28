@@ -54,6 +54,11 @@ class RouterDashboardScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _DashboardCard(
+                  title: 'Wi‑Fi',
+                  child: _WifiSection(status: status),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _DashboardCard(
                   title: 'Cellular',
                   child: _CellularSection(status: status),
                 ),
@@ -204,6 +209,24 @@ class _BatterySection extends StatelessWidget {
             ),
           ),
         ],
+        if (status.powerState != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Power state: ${status.powerState}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+        if (status.batteryTemperatureC != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Temperature: ${status.batteryTemperatureC}°C',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -249,13 +272,22 @@ class _DataUsageSection extends StatelessWidget {
     final limit = status.dataLimitSummary;
     final percent = status.dataUsagePercent;
     final plan = status.planTitle;
-    final remaining = status.dataRemainingBytes;
+    final remaining = status.dataRemainingSummary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (plan != null) ...[
           Text(plan, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: AppSpacing.xs),
+        ],
+        if (status.accountType != null) ...[
+          Text(
+            status.accountType!,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
           const SizedBox(height: AppSpacing.xs),
         ],
         Text(
@@ -284,8 +316,26 @@ class _DataUsageSection extends StatelessWidget {
         if (remaining != null) ...[
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Remaining: ${_formatBytes(remaining)}',
+            'Remaining: $remaining',
             style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
+        if (status.nextBillingDateLabel != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Next billing date: ${status.nextBillingDateLabel}',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+        if (status.dataValidState != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Carrier usage status: ${status.dataValidState}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
         if (status.billingDaysRemaining != null) ...[
@@ -321,19 +371,22 @@ class _DataUsageSection extends StatelessWidget {
     }
     return '—';
   }
+}
 
-  static String _formatBytes(int bytes) {
-    const gb = 1024 * 1024 * 1024;
-    const mb = 1024 * 1024;
-    if (bytes >= gb) {
-      final value = bytes / gb;
-      return '${value.toStringAsFixed(value >= 10 ? 0 : 1)} GB';
-    }
-    if (bytes >= mb) {
-      final value = bytes / mb;
-      return '${value.toStringAsFixed(value >= 10 ? 0 : 1)} MB';
-    }
-    return '$bytes B';
+class _WifiSection extends StatelessWidget {
+  const _WifiSection({required this.status});
+
+  final RouterStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _MetricRow(label: 'SSID', value: status.wifiSsid),
+        const SizedBox(height: AppSpacing.sm),
+        _MetricRow(label: 'Status', value: status.wifiStatus),
+      ],
+    );
   }
 }
 
@@ -346,6 +399,8 @@ class _CellularSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        _MetricRow(label: 'Carrier', value: status.carrierName),
+        const SizedBox(height: AppSpacing.sm),
         _MetricRow(label: 'Connection', value: status.connectionState),
         const SizedBox(height: AppSpacing.sm),
         _MetricRow(label: 'Network type', value: status.networkType),
@@ -356,6 +411,17 @@ class _CellularSection extends StatelessWidget {
               ? null
               : '${status.signalStrength} bars',
         ),
+        if (status.signalRsrp != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _MetricRow(label: 'RSRP', value: '${status.signalRsrp} dBm'),
+        ],
+        if (status.roaming != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          _MetricRow(
+            label: 'Roaming',
+            value: status.roaming! ? 'Yes' : 'No',
+          ),
+        ],
       ],
     );
   }

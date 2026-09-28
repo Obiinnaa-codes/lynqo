@@ -5,22 +5,42 @@
   },
   "power": {
     "battChargeLevel": 72,
-    "battChargeStatus": "Discharging"
+    "battChargeStatus": "Discharging",
+    "charging": "false",
+    "PMState": "Online",
+    "batteryTemperature": 31
   },
   "wwan": {
     "connection": "Connected",
     "currentPSserviceType": "LTE",
+    "registerNetworkDisplay": "AT&T",
+    "roaming": "false",
     "signalStrength": {
-      "bars": 4
+      "bars": 4,
+      "rsrp": -95
     },
     "dataUsage": {
+      "accountType": "Postpaid",
+      "serverDataValidState": "Valid",
       "planDescription": "AT&T Mobile Share",
-      "serverDataTransferred": 3221225472,
+      "serverDataTransferred": 2147483648,
       "serverDataRemaining": 9663676416,
+      "serverDaysLeft": 12,
+      "share": {
+        "enabled": "true",
+        "dataCountAll": 3758096384
+      },
       "generic": {
         "billingCycleLimit": 12884901888,
-        "billingCycleRemainder": 1209600
+        "billingCycleRemainder": 1209600,
+        "nextBillingDate": 1761955200
       }
+    }
+  },
+  "wifi": {
+    "SSID": "MyHotspot",
+    "primary": {
+      "status": "On"
     }
   },
   "router": {
