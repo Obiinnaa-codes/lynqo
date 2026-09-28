@@ -92,6 +92,21 @@ class AttWifiSessionParser {
   static String cookieHeader(String sessionId) {
     return '${AttWifiAuthSpec.sessionIdCookieName}=$sessionId';
   }
+
+  /// Cookie jar wins over URL query so POST `sessionId` matches the HttpOnly cookie.
+  static Future<String?> resolveActiveSessionId({
+    required Future<String?> Function() readCookieJar,
+    RouterHttpResponse? bootstrapResponse,
+  }) async {
+    final fromJar = await readCookieJar();
+    if (fromJar != null) {
+      return fromJar;
+    }
+    if (bootstrapResponse != null) {
+      return sessionIdFromBootstrap(bootstrapResponse);
+    }
+    return null;
+  }
 }
 
 class AttWifiLoginResponseParser {
@@ -106,7 +121,7 @@ class AttWifiLoginResponseParser {
 
     final requestUrl = response.requestUrl;
     if (_urlIndicatesLoginFailed(requestUrl)) {
-      return const AttWifiLoginOutcome.invalidCredentials();
+      return _outcomeFromLoginFailureUrl(requestUrl);
     }
     if (_urlIndicatesHtmlLoginSuccess(requestUrl) &&
         response.statusCode >= 200 &&
@@ -120,6 +135,36 @@ class AttWifiLoginResponseParser {
   static bool _urlIndicatesLoginFailed(String url) {
     return url.contains(AttWifiAuthSpec.htmlErrorRedirectPath) ||
         url.contains('loginfailed');
+  }
+
+  static AttWifiLoginOutcome _outcomeFromLoginFailureUrl(String url) {
+    final errno = errnoFromUrl(url);
+    if (errno == AttWifiAuthSpec.invalidPasswordErrno) {
+      return const AttWifiLoginOutcome.invalidCredentials();
+    }
+    if (errno == AttWifiAuthSpec.invalidSessionErrno) {
+      return const AttWifiLoginOutcome.sessionError();
+    }
+    return const AttWifiLoginOutcome.invalidCredentials();
+  }
+
+  static int? errnoFromUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      return null;
+    }
+    final fromParams = uri.queryParameters[AttWifiAuthSpec.errorNumberKey];
+    if (fromParams != null && fromParams.isNotEmpty) {
+      return int.tryParse(fromParams);
+    }
+    for (final segment in uri.query.split('&')) {
+      if (segment.startsWith('${AttWifiAuthSpec.errorNumberKey}=')) {
+        return int.tryParse(
+          segment.substring(AttWifiAuthSpec.errorNumberKey.length + 1),
+        );
+      }
+    }
+    return null;
   }
 
   static bool _urlIndicatesHtmlLoginSuccess(String url) {
@@ -171,7 +216,9 @@ class AttWifiLoginResponseParser {
 
   static bool _hasInvalidPasswordErrorNumber(String trimmed) {
     for (final key in ['errno', 'errNo']) {
-      if (RegExp('"$key"\\s*:\\s*2\\b').hasMatch(trimmed)) {
+      if (RegExp(
+        '"$key"\\s*:\\s*${AttWifiAuthSpec.invalidPasswordErrno}\\b',
+      ).hasMatch(trimmed)) {
         return true;
       }
     }
@@ -186,6 +233,7 @@ sealed class AttWifiLoginOutcome {
   const factory AttWifiLoginOutcome.invalidCredentials() =
       AttWifiLoginInvalidCredentials;
   const factory AttWifiLoginOutcome.unexpected() = AttWifiLoginUnexpected;
+  const factory AttWifiLoginOutcome.sessionError() = AttWifiLoginSessionError;
 }
 
 final class AttWifiLoginSuccess extends AttWifiLoginOutcome {
@@ -198,4 +246,8 @@ final class AttWifiLoginInvalidCredentials extends AttWifiLoginOutcome {
 
 final class AttWifiLoginUnexpected extends AttWifiLoginOutcome {
   const AttWifiLoginUnexpected();
+}
+
+final class AttWifiLoginSessionError extends AttWifiLoginOutcome {
+  const AttWifiLoginSessionError();
 }

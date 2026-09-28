@@ -80,6 +80,39 @@ void main() {
     expect(internalApi, AttWifiAuthSpec.internalApiQueryValue);
   });
 
+  test('login POST includes sessionId query when jar has bootstrap session', () async {
+    String? loginSessionQuery;
+    final client = buildClient(
+      handler: (options) async {
+        if (options.path == '/' && options.method == 'GET') {
+          return mockResponse(
+            statusCode: 200,
+            body: '',
+            headers: {
+              'set-cookie': [
+                'sessionId=$bootstrapSessionId; Path=/; HttpOnly',
+              ],
+            },
+          );
+        }
+        if (options.path == AttWifiAuthSpec.authenticationPath &&
+            options.method == 'POST') {
+          loginSessionQuery =
+              options.queryParameters[AttWifiAuthSpec.sessionIdQueryParameter];
+          return mockResponse(statusCode: 200, body: '{"success": true}');
+        }
+        return mockResponse(statusCode: 404);
+      },
+    );
+
+    await client.getRoot();
+    await client.submitAttWifiForm(
+      sessionIdQuery: bootstrapSessionId,
+      fields: {'token': 'x'},
+    );
+    expect(loginSessionQuery, bootstrapSessionId);
+  });
+
   test('login POST does not send stale explicit Cookie when jar has session', () async {
     String? loginCookieHeader;
     final client = buildClient(
@@ -105,7 +138,10 @@ void main() {
     );
 
     await client.getRoot();
-    await client.submitAttWifiForm(fields: {'token': 'x'});
+    await client.submitAttWifiForm(
+      sessionIdQuery: bootstrapSessionId,
+      fields: {'token': 'x'},
+    );
     expect(loginCookieHeader, contains(bootstrapSessionId));
     expect(loginCookieHeader, isNot(contains('STALE')));
   });

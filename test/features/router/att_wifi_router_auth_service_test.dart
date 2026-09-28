@@ -188,7 +188,7 @@ void main() {
             authenticated = true;
             expect(
               options.queryParameters[AttWifiAuthSpec.sessionIdQueryParameter],
-              isNull,
+              fakeSessionId,
             );
             return mockResponse(
               statusCode: 302,
@@ -269,7 +269,7 @@ void main() {
     expect(result.state, RouterAuthenticationState.authenticated);
   });
 
-  test('pre-login model uses internalapi and x without sessionId query', () async {
+  test('pre-login model uses internalapi, x, and sessionId query', () async {
     String? preLoginSessionQuery;
     String? preLoginCacheBust;
     String? preLoginInternalApi;
@@ -279,11 +279,11 @@ void main() {
           return bootstrapResponse();
         }
         if (options.path.contains('model.json')) {
-          preLoginSessionQuery =
+          preLoginSessionQuery ??=
               options.queryParameters[AttWifiAuthSpec.sessionIdQueryParameter];
-          preLoginCacheBust =
+          preLoginCacheBust ??=
               options.queryParameters[AttWifiAuthSpec.cacheBustQueryParameter];
-          preLoginInternalApi =
+          preLoginInternalApi ??=
               options.queryParameters[AttWifiAuthSpec.internalApiQueryFlag];
           return guestModelResponse();
         }
@@ -300,7 +300,7 @@ void main() {
       profile: RouterProfileCatalog.attWifi,
     );
 
-    expect(preLoginSessionQuery, isNull);
+    expect(preLoginSessionQuery, fakeSessionId);
     expect(preLoginCacheBust, isNotNull);
     expect(preLoginInternalApi, AttWifiAuthSpec.internalApiQueryValue);
   });

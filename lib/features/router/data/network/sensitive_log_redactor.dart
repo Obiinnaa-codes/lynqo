@@ -59,6 +59,9 @@ abstract final class SensitiveLogRedactor {
     if (!stripped) {
       return url;
     }
+    if (redactedQuery.isEmpty) {
+      return uri.replace(queryParameters: null).toString();
+    }
     return uri.replace(queryParameters: redactedQuery).toString();
   }
 }

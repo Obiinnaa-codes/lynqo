@@ -16,7 +16,7 @@ abstract final class AttWifiAuthSpec {
 
   static const contentTypeFormUrlEncoded = 'application/x-www-form-urlencoded';
 
-  /// Query parameter appended to `/Forms/config` and internal API calls.
+  /// Query parameter on `/Forms/config` (browser login form action) and API calls.
   static const sessionIdQueryParameter = 'sessionId';
 
   /// HttpOnly cookie set during bootstrap (`sessionId=…`).
@@ -58,6 +58,9 @@ abstract final class AttWifiAuthSpec {
   /// Failed login (`session.password` validation).
   static const errorNumberKey = 'errno';
   static const errorDetailKey = 'errdetail';
+  static const invalidPasswordErrno = 2;
+  /// Form submit rejected: session/token mismatch (not wrong password).
+  static const invalidSessionErrno = 6;
   static const invalidPasswordErrorDetail = 'session.password';
 
   /// Logout via empty password submit on the same endpoint.

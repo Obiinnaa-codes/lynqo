@@ -32,18 +32,26 @@ class RouterApiClient {
     Map<String, String>? queryParameters,
     required Map<String, String> fields,
     String? cookieHeader,
+    String? referer,
   }) => _networkService.postForm(
     path,
     queryParameters: queryParameters,
     fields: fields,
     cookieHeader: cookieHeader,
+    referer: referer,
   );
 
   /// Guest/pre-login model read (browser: `internalapi=1` + cache-bust `x`, cookie jar).
-  Future<RouterHttpResponse> fetchAttWifiModel({String? sessionIdForCookie}) {
+  Future<RouterHttpResponse> fetchAttWifiModel({
+    String? sessionIdForCookie,
+    String? sessionIdQuery,
+  }) {
+    final sessionId = sessionIdQuery ?? sessionIdForCookie;
     return getPath(
       AttWifiAuthSpec.modelJsonPath,
-      queryParameters: _browserModelQueryParameters(),
+      queryParameters: _browserModelQueryParameters(
+        sessionIdQuery: sessionId,
+      ),
       cookieHeader: sessionIdForCookie == null
           ? null
           : _sessionCookie(sessionIdForCookie),
@@ -66,11 +74,15 @@ class RouterApiClient {
     );
   }
 
-  static Map<String, String> _browserModelQueryParameters() {
+  static Map<String, String> _browserModelQueryParameters({
+    String? sessionIdQuery,
+  }) {
     return {
       AttWifiAuthSpec.internalApiQueryFlag:
           AttWifiAuthSpec.internalApiQueryValue,
       AttWifiAuthSpec.cacheBustQueryParameter: _cacheBustValue(),
+      if (sessionIdQuery != null)
+        AttWifiAuthSpec.sessionIdQueryParameter: sessionIdQuery,
     };
   }
 
@@ -81,22 +93,33 @@ class RouterApiClient {
 
   Future<RouterHttpResponse> submitAttWifiForm({
     required Map<String, String> fields,
+    String? sessionIdQuery,
     String? sessionIdForCookie,
   }) {
+    final baseUrl = _networkService.baseUrl;
+    final referer = Uri.parse(baseUrl).replace(
+      path: AttWifiAuthSpec.loginPagePath,
+    ).toString();
     return postForm(
       AttWifiAuthSpec.authenticationPath,
       fields: fields,
+      queryParameters: sessionIdQuery == null
+          ? null
+          : {
+              AttWifiAuthSpec.sessionIdQueryParameter: sessionIdQuery,
+            },
       cookieHeader: sessionIdForCookie == null
           ? null
           : _sessionCookie(sessionIdForCookie),
+      referer: referer,
     );
   }
 
   /// Resolves `sessionId` after the verified bootstrap chain (`GET /`, login page).
   Future<String?> bootstrapAttWifiSessionId() async {
     final root = await getRoot();
-    var sessionId = AttWifiSessionParser.sessionIdFromBootstrap(root);
-    sessionId ??= await _networkService.readSessionIdFromCookieJar();
+    var sessionId = await _networkService.readSessionIdFromCookieJar();
+    sessionId ??= AttWifiSessionParser.sessionIdFromBootstrap(root);
 
     if (sessionId == null) {
       final loginPage = await getPath(AttWifiAuthSpec.loginPagePath);

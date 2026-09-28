@@ -45,6 +45,32 @@ void main() {
     );
   });
 
+  test('login response parser maps errno from loginfailed redirect URL', () {
+    final sessionError = AttWifiLoginResponseParser.parseHttpResponse(
+      RouterHttpResponse(
+        statusCode: 200,
+        headers: const {},
+        body: '<html></html>',
+        requestUrl:
+            'http://attwifimanager/index.html?loginfailed&errno=6',
+        redirectDetected: true,
+      ),
+    );
+    expect(sessionError, isA<AttWifiLoginSessionError>());
+
+    final wrongPassword = AttWifiLoginResponseParser.parseHttpResponse(
+      RouterHttpResponse(
+        statusCode: 200,
+        headers: const {},
+        body: '<html></html>',
+        requestUrl:
+            'http://attwifimanager/index.html?loginfailed&errno=2',
+        redirectDetected: true,
+      ),
+    );
+    expect(wrongPassword, isA<AttWifiLoginInvalidCredentials>());
+  });
+
   test('session parser reads cookie and model fields from synthetic data', () {
     final sessionId = AttWifiSessionParser.sessionIdFromBootstrap(
       RouterHttpResponse(

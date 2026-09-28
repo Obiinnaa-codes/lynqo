@@ -205,6 +205,7 @@ class RouterNetworkService {
     Map<String, String>? queryParameters,
     required Map<String, String> fields,
     String? cookieHeader,
+    String? referer,
   }) async {
     try {
       final body = fields.entries
@@ -224,6 +225,7 @@ class RouterNetworkService {
           maxRedirects: _formPostMaxRedirects,
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
+            if (referer != null) 'Referer': referer,
             'Cookie': ?cookieHeader,
           },
         ),

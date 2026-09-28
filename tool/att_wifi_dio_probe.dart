@@ -129,14 +129,14 @@ Future<void> runAttWifiDioProbe({String? probePassword}) async {
   });
 
   await _probeStep('GET model.json (pre-auth)', () async {
-    final response = await client.fetchAttWifiModel();
+    final response = await client.fetchAttWifiModel(sessionIdQuery: sessionId);
     _logHttpSummary(response);
     final role = AttWifiSessionParser.userRoleFromModelBody(response.body);
     debugPrint('[AttWifiProbe] userRole: ${role ?? 'unknown'}');
     return response;
   });
 
-  final model = await client.fetchAttWifiModel();
+  final model = await client.fetchAttWifiModel(sessionIdQuery: sessionId);
   final secToken = AttWifiSessionParser.secTokenFromModelBody(model.body);
   if (secToken == null) {
     debugPrint('[AttWifiProbe] ERROR: secToken missing');
@@ -144,9 +144,10 @@ Future<void> runAttWifiDioProbe({String? probePassword}) async {
   }
   debugPrint('[AttWifiProbe] secToken present: yes (value [REDACTED])');
 
-  await _probeStep('POST /Forms/config (invalid password)', () async {
-    final response = await client.submitAttWifiForm(
-      fields: {
+    await _probeStep('POST /Forms/config (invalid password)', () async {
+      final response = await client.submitAttWifiForm(
+        sessionIdQuery: sessionId,
+        fields: {
         AttWifiAuthSpec.tokenFormField: secToken,
         AttWifiAuthSpec.errorRedirectFormField:
             AttWifiAuthSpec.htmlErrorRedirectPath,
@@ -162,7 +163,7 @@ Future<void> runAttWifiDioProbe({String? probePassword}) async {
     '[AttWifiProbe] ATT_WIFI_PROBE_PASSWORD detected=${probePassword != null}',
   );
   if (probePassword != null) {
-    final refreshed = await client.fetchAttWifiModel();
+    final refreshed = await client.fetchAttWifiModel(sessionIdQuery: sessionId);
     final token = AttWifiSessionParser.secTokenFromModelBody(refreshed.body);
     if (token == null) {
       debugPrint('[AttWifiProbe] ERROR: secToken missing before real login');
@@ -170,6 +171,7 @@ Future<void> runAttWifiDioProbe({String? probePassword}) async {
     }
     await _probeStep('POST /Forms/config (real login)', () async {
       final response = await client.submitAttWifiForm(
+        sessionIdQuery: sessionId,
         fields: {
           AttWifiAuthSpec.tokenFormField: token,
           AttWifiAuthSpec.errorRedirectFormField:
