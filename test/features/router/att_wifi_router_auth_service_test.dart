@@ -1,5 +1,6 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
+import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lynqo/features/router/config/router_config.dart';
@@ -29,9 +30,11 @@ void main() {
     final factory = RouterClientFactory(
       transportConfig: transport,
       dioFactory: (config, {CookieJar? cookieJar}) {
+        final jar = cookieJar ?? CookieJar();
         final dio = Dio(
           BaseOptions(baseUrl: config.baseUrl, validateStatus: (_) => true),
         );
+        dio.interceptors.add(CookieManager(jar));
         dio.httpClientAdapter = MockHttpAdapter(handler);
         return dio;
       },
@@ -108,7 +111,6 @@ void main() {
 
   test('successful authentication via POST 302 to success.json', () async {
     var authenticated = false;
-    String? redirectRequestCookie;
     final service = buildService(
       handler: (options) async {
         if (options.path == '/' && options.method == 'GET') {
@@ -135,7 +137,6 @@ void main() {
         }
         if (options.path == AttWifiAuthSpec.successRedirectPath &&
             options.method == 'GET') {
-          redirectRequestCookie = options.headers['Cookie'] as String?;
           return mockResponse(statusCode: 200, body: '{"success": true}');
         }
         return mockResponse(statusCode: 404);
@@ -149,7 +150,186 @@ void main() {
     );
 
     expect(result.state, RouterAuthenticationState.authenticated);
-    expect(redirectRequestCookie, contains('sessionId=$fakeSessionId'));
+  });
+
+  test(
+    'post-login model uses jar only without bootstrap sessionId query',
+    () async {
+      const authenticatedSessionId = 'AUTHENTICATED-SESSION-ID';
+      var authenticated = false;
+      String? postLoginExplicitCookie;
+      String? postLoginSessionQuery;
+      String? postLoginCacheBust;
+      String? postLoginInternalApi;
+      final service = buildService(
+        handler: (options) async {
+          if (options.path == '/' && options.method == 'GET') {
+            return bootstrapResponse();
+          }
+          if (options.path.contains('model.json')) {
+            if (authenticated) {
+              postLoginExplicitCookie = options.headers['Cookie'] as String?;
+              postLoginSessionQuery =
+                  options.queryParameters[AttWifiAuthSpec.sessionIdQueryParameter];
+              postLoginCacheBust =
+                  options.queryParameters[AttWifiAuthSpec.cacheBustQueryParameter];
+              postLoginInternalApi =
+                  options.queryParameters[AttWifiAuthSpec.internalApiQueryFlag];
+            }
+            return mockResponse(
+              statusCode: 200,
+              body: authenticated
+                  ? '{"session": {"secToken": "$fakeSecToken", "userRole": "${AttWifiAuthSpec.adminUserRole}"}}'
+                  : '{"session": {"secToken": "$fakeSecToken", "userRole": "${AttWifiAuthSpec.guestUserRole}"}}',
+            );
+          }
+          if (options.path == AttWifiAuthSpec.authenticationPath &&
+              options.method == 'POST') {
+            authenticated = true;
+            expect(
+              options.queryParameters[AttWifiAuthSpec.sessionIdQueryParameter],
+              isNull,
+            );
+            return mockResponse(
+              statusCode: 302,
+              body: '',
+              headers: {
+                'location': [AttWifiAuthSpec.successRedirectPath],
+                'set-cookie': [
+                  'sessionId=$authenticatedSessionId; Path=/; HttpOnly',
+                ],
+              },
+            );
+          }
+          if (options.path == AttWifiAuthSpec.successRedirectPath &&
+              options.method == 'GET') {
+            return mockResponse(statusCode: 200, body: '{"success": true}');
+          }
+          return mockResponse(statusCode: 404);
+        },
+      );
+
+      final result = await service.login(
+        username: 'admin',
+        password: fakePassword,
+        profile: RouterProfileCatalog.attWifi,
+      );
+
+      expect(result.state, RouterAuthenticationState.authenticated);
+      expect(postLoginSessionQuery, isNull);
+      expect(postLoginCacheBust, isNotNull);
+      expect(postLoginInternalApi, AttWifiAuthSpec.internalApiQueryValue);
+      expect(postLoginExplicitCookie, isNot(contains(fakeSessionId)));
+    },
+  );
+
+  test('successful authentication via POST 302 to index.html (browser parity)', () async {
+    var authenticated = false;
+    final service = buildService(
+      handler: (options) async {
+        if (options.path == '/' && options.method == 'GET') {
+          return bootstrapResponse();
+        }
+        if (options.path.contains('model.json')) {
+          return mockResponse(
+            statusCode: 200,
+            body: authenticated
+                ? '{"session": {"secToken": "$fakeSecToken", "userRole": "${AttWifiAuthSpec.adminUserRole}"}}'
+                : '{"session": {"secToken": "$fakeSecToken", "userRole": "${AttWifiAuthSpec.guestUserRole}"}}',
+          );
+        }
+        if (options.path == AttWifiAuthSpec.authenticationPath &&
+            options.method == 'POST') {
+          authenticated = true;
+          final body = options.data as String? ?? '';
+          expect(body, contains('ok_redirect=%2Findex.html'));
+          expect(body, contains('err_redirect=%2Findex.html%3Floginfailed'));
+          return mockResponse(
+            statusCode: 302,
+            body: '',
+            headers: {
+              'location': [AttWifiAuthSpec.htmlOkRedirectPath],
+            },
+          );
+        }
+        if (options.path == AttWifiAuthSpec.loginPagePath &&
+            options.method == 'GET') {
+          return mockResponse(statusCode: 200, body: '<html></html>');
+        }
+        return mockResponse(statusCode: 404);
+      },
+    );
+
+    final result = await service.login(
+      username: 'admin',
+      password: fakePassword,
+      profile: RouterProfileCatalog.attWifi,
+    );
+
+    expect(result.state, RouterAuthenticationState.authenticated);
+  });
+
+  test('pre-login model uses internalapi and x without sessionId query', () async {
+    String? preLoginSessionQuery;
+    String? preLoginCacheBust;
+    String? preLoginInternalApi;
+    final service = buildService(
+      handler: (options) async {
+        if (options.path == '/' && options.method == 'GET') {
+          return bootstrapResponse();
+        }
+        if (options.path.contains('model.json')) {
+          preLoginSessionQuery =
+              options.queryParameters[AttWifiAuthSpec.sessionIdQueryParameter];
+          preLoginCacheBust =
+              options.queryParameters[AttWifiAuthSpec.cacheBustQueryParameter];
+          preLoginInternalApi =
+              options.queryParameters[AttWifiAuthSpec.internalApiQueryFlag];
+          return guestModelResponse();
+        }
+        if (options.path == AttWifiAuthSpec.authenticationPath) {
+          return mockResponse(statusCode: 200, body: '{"success": true}');
+        }
+        return mockResponse(statusCode: 404);
+      },
+    );
+
+    await service.login(
+      username: 'admin',
+      password: fakePassword,
+      profile: RouterProfileCatalog.attWifi,
+    );
+
+    expect(preLoginSessionQuery, isNull);
+    expect(preLoginCacheBust, isNotNull);
+    expect(preLoginInternalApi, AttWifiAuthSpec.internalApiQueryValue);
+  });
+
+  test('att_wifi login does not request 192.168.0.1', () async {
+    final requestedHosts = <String>{};
+    final service = buildService(
+      handler: (options) async {
+        requestedHosts.add(options.baseUrl);
+        if (options.path == '/' && options.method == 'GET') {
+          return bootstrapResponse();
+        }
+        if (options.path.contains('model.json')) {
+          return guestModelResponse();
+        }
+        if (options.path == AttWifiAuthSpec.authenticationPath) {
+          return mockResponse(statusCode: 200, body: '{"success": true}');
+        }
+        return mockResponse(statusCode: 404);
+      },
+    );
+
+    await service.login(
+      username: 'admin',
+      password: fakePassword,
+      profile: RouterProfileCatalog.attWifi,
+    );
+
+    expect(requestedHosts.every((url) => !url.contains('192.168.0.1')), isTrue);
   });
 
   test('incorrect password via POST 302 to error.json', () async {

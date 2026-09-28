@@ -97,6 +97,39 @@ class AttWifiSessionParser {
 class AttWifiLoginResponseParser {
   const AttWifiLoginResponseParser._();
 
+  static AttWifiLoginOutcome parseHttpResponse(RouterHttpResponse response) {
+    final fromBody = parse(response.body);
+    if (fromBody is AttWifiLoginSuccess ||
+        fromBody is AttWifiLoginInvalidCredentials) {
+      return fromBody;
+    }
+
+    final requestUrl = response.requestUrl;
+    if (_urlIndicatesLoginFailed(requestUrl)) {
+      return const AttWifiLoginOutcome.invalidCredentials();
+    }
+    if (_urlIndicatesHtmlLoginSuccess(requestUrl) &&
+        response.statusCode >= 200 &&
+        response.statusCode < 300) {
+      return const AttWifiLoginOutcome.success();
+    }
+
+    return fromBody;
+  }
+
+  static bool _urlIndicatesLoginFailed(String url) {
+    return url.contains(AttWifiAuthSpec.htmlErrorRedirectPath) ||
+        url.contains('loginfailed');
+  }
+
+  static bool _urlIndicatesHtmlLoginSuccess(String url) {
+    if (_urlIndicatesLoginFailed(url)) {
+      return false;
+    }
+    return url.contains(AttWifiAuthSpec.htmlOkRedirectPath) ||
+        url.contains(AttWifiAuthSpec.loginPagePath);
+  }
+
   static AttWifiLoginOutcome parse(String body) {
     final trimmed = body.trim();
     if (trimmed.isEmpty) {

@@ -8,6 +8,7 @@ import '../../../domain/router_profile.dart';
 import '../../../domain/router_session.dart';
 import '../../../presentation/router_user_messages.dart';
 import '../../network/router_client_factory.dart';
+import '../../network/router_http_diagnostic.dart';
 import '../../network/router_http_response.dart';
 import '../../router_api_client.dart';
 import '../router_auth_result.dart';
@@ -20,8 +21,8 @@ import 'att_wifi_auth_spec.dart';
 class AttWifiRouterAuthService implements RouterAuthService {
   AttWifiRouterAuthService({
     required this._clientFactory,
-    required RouterSecureStorage secureStorage,
-  }) : _secureStorage = secureStorage;
+    required this._secureStorage,
+  });
 
   final RouterClientFactory _clientFactory;
   final RouterSecureStorage _secureStorage;
@@ -49,20 +50,31 @@ class AttWifiRouterAuthService implements RouterAuthService {
     }
 
     try {
+      if (kDebugMode) {
+        debugPrint('[RouterConnect] auth profile=att_wifi');
+      }
       final client = _clientFromFactory();
       if (kDebugMode) {
         debugPrint('[RouterConnect] auth step: bootstrap GET /');
       }
       final bootstrap = await client.getRoot();
-      final sessionId = AttWifiSessionParser.sessionIdFromBootstrap(bootstrap);
-      if (sessionId == null) {
+      final bootstrapSessionId =
+          AttWifiSessionParser.sessionIdFromBootstrap(bootstrap) ??
+          await client.readSessionIdFromCookieJar();
+      final bootstrapCookieEstablished = bootstrapSessionId != null;
+      if (kDebugMode) {
+        debugPrint(
+          '[RouterConnect] bootstrap cookie established=$bootstrapCookieEstablished',
+        );
+      }
+      if (!bootstrapCookieEstablished) {
         return _failed(const InvalidResponse());
       }
 
       if (kDebugMode) {
         debugPrint('[RouterConnect] auth step: pre-login GET model.json');
       }
-      final model = await client.fetchAttWifiModel(sessionId: sessionId);
+      final model = await client.fetchAttWifiModel();
       final secToken = AttWifiSessionParser.secTokenFromModelBody(model.body);
       if (secToken == null) {
         return _failed(const InvalidResponse());
@@ -72,11 +84,18 @@ class AttWifiRouterAuthService implements RouterAuthService {
         debugPrint('[RouterConnect] auth step: POST /Forms/config');
       }
       final loginResponse = await client.submitAttWifiForm(
-        sessionId: sessionId,
         fields: _loginFields(secToken: secToken, password: password),
       );
 
-      final outcome = AttWifiLoginResponseParser.parse(loginResponse.body);
+      if (kDebugMode) {
+        debugPrint(
+          '[RouterConnect] login POST completed status=${loginResponse.statusCode}',
+        );
+      }
+
+      final outcome = AttWifiLoginResponseParser.parseHttpResponse(
+        loginResponse,
+      );
       if (kDebugMode) {
         debugPrint(
           '[RouterConnect] auth step: login response parsed '
@@ -87,8 +106,9 @@ class AttWifiRouterAuthService implements RouterAuthService {
       }
       return switch (outcome) {
         AttWifiLoginSuccess() => await _completeLogin(
-          sessionId,
+          bootstrapSessionId: bootstrapSessionId,
           client: client,
+          loginHttpResponse: loginResponse,
         ),
         AttWifiLoginInvalidCredentials() => RouterAuthResult(
           state: RouterAuthenticationState.failed,
@@ -113,22 +133,55 @@ class AttWifiRouterAuthService implements RouterAuthService {
   }) {
     return {
       AttWifiAuthSpec.tokenFormField: secToken,
-      AttWifiAuthSpec.errorRedirectFormField: AttWifiAuthSpec.errorRedirectPath,
-      AttWifiAuthSpec.okRedirectFormField: AttWifiAuthSpec.successRedirectPath,
+      AttWifiAuthSpec.errorRedirectFormField:
+          AttWifiAuthSpec.htmlErrorRedirectPath,
+      AttWifiAuthSpec.okRedirectFormField: AttWifiAuthSpec.htmlOkRedirectPath,
       AttWifiAuthSpec.passwordFormField: password,
     };
   }
 
-  Future<RouterAuthResult> _completeLogin(
-    String sessionId, {
+  Future<RouterAuthResult> _completeLogin({
+    required String bootstrapSessionId,
     required RouterApiClient client,
+    RouterHttpResponse? loginHttpResponse,
   }) async {
+    if (kDebugMode && loginHttpResponse != null) {
+      RouterHttpDiagnostic.logSetCookieNames(
+        'login response',
+        loginHttpResponse,
+      );
+    }
+
+    final jarSessionId = await client.readSessionIdFromCookieJar();
+    final sessionRotated = jarSessionId != null &&
+        jarSessionId.isNotEmpty &&
+        jarSessionId != bootstrapSessionId;
+    if (kDebugMode) {
+      debugPrint(
+        '[RouterConnect] session cookie rotated=$sessionRotated',
+      );
+      debugPrint(
+        '[RouterConnect] authenticated model URL=${AttWifiAuthSpec.modelJsonPath}'
+        '?${AttWifiAuthSpec.internalApiQueryFlag}=${AttWifiAuthSpec.internalApiQueryValue}'
+        '&${AttWifiAuthSpec.cacheBustQueryParameter}=<redacted>',
+      );
+      await client.debugProbePostLoginModel();
+      debugPrint(
+        '[RouterConnect] auth step: post-login GET model.json (jar cookies)',
+      );
+    }
+
     try {
-      if (kDebugMode) {
-        debugPrint('[RouterConnect] auth step: post-login GET model.json');
-      }
-      final model = await client.fetchAttWifiModel(sessionId: sessionId);
+      final model = await client.fetchAttWifiModelAuthenticated();
       final role = AttWifiSessionParser.userRoleFromModelBody(model.body);
+      if (kDebugMode) {
+        debugPrint(
+          '[RouterConnect] authenticated model status=${model.statusCode}',
+        );
+        debugPrint(
+          '[RouterConnect] authenticated model success=${role == AttWifiAuthSpec.adminUserRole}',
+        );
+      }
       if (role != AttWifiAuthSpec.adminUserRole) {
         return _failed(const InvalidResponse());
       }
@@ -136,7 +189,8 @@ class AttWifiRouterAuthService implements RouterAuthService {
       return _failed(failure);
     }
 
-    await _secureStorage.saveAttWifiSession(sessionId: sessionId);
+    final persistedSessionId = jarSessionId ?? bootstrapSessionId;
+    await _secureStorage.saveAttWifiSession(sessionId: persistedSessionId);
     return RouterAuthResult(
       state: RouterAuthenticationState.authenticated,
       message: 'Signed in.',
@@ -177,11 +231,13 @@ class AttWifiRouterAuthService implements RouterAuthService {
     if (sessionId != null) {
       try {
         final client = _clientFromFactory();
-        final model = await client.fetchAttWifiModel(sessionId: sessionId);
+        final model = await client.fetchAttWifiModel(
+          sessionIdForCookie: sessionId,
+        );
         final secToken = AttWifiSessionParser.secTokenFromModelBody(model.body);
         if (secToken != null) {
           await client.submitAttWifiForm(
-            sessionId: sessionId,
+            sessionIdForCookie: sessionId,
             fields: {
               AttWifiAuthSpec.tokenFormField: secToken,
               AttWifiAuthSpec.errorRedirectFormField:
@@ -225,7 +281,9 @@ class AttWifiRouterAuthService implements RouterAuthService {
     }
 
     try {
-      final model = await _clientFromFactory().fetchAttWifiModel(sessionId: sessionId);
+      final model = await _clientFromFactory().fetchAttWifiModel(
+        sessionIdForCookie: sessionId,
+      );
       if (model.statusCode == 401 || model.statusCode == 403) {
         await _secureStorage.clearSession();
         return RouterAuthenticationState.failed;
@@ -248,8 +306,8 @@ class AttWifiRouterAuthService implements RouterAuthService {
 class RouterAuthServiceSelector implements RouterAuthService {
   RouterAuthServiceSelector({
     required this._pending,
-    required AttWifiRouterAuthService attWifi,
-  }) : _attWifi = attWifi;
+    required this._attWifi,
+  });
 
   final PendingRouterAuthService _pending;
   final AttWifiRouterAuthService _attWifi;

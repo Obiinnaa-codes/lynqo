@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'auth/att_wifi/att_wifi_auth_investigator.dart';
 import 'auth/att_wifi/att_wifi_auth_spec.dart';
 import 'network/router_network_service.dart';
@@ -7,6 +9,11 @@ class RouterApiClient {
   RouterApiClient(this._networkService);
 
   final RouterNetworkService _networkService;
+
+  RouterNetworkService get networkService => _networkService;
+
+  Future<String?> readSessionIdFromCookieJar() =>
+      _networkService.readSessionIdFromCookieJar();
 
   Future<RouterHttpResponse> getRoot() => _networkService.get('/');
 
@@ -32,27 +39,56 @@ class RouterApiClient {
     cookieHeader: cookieHeader,
   );
 
-  Future<RouterHttpResponse> fetchAttWifiModel({required String sessionId}) {
+  /// Guest/pre-login model read (browser: `internalapi=1` + cache-bust `x`, cookie jar).
+  Future<RouterHttpResponse> fetchAttWifiModel({String? sessionIdForCookie}) {
     return getPath(
       AttWifiAuthSpec.modelJsonPath,
-      queryParameters: {
-        AttWifiAuthSpec.internalApiQueryFlag:
-            AttWifiAuthSpec.internalApiQueryValue,
-        AttWifiAuthSpec.sessionIdQueryParameter: sessionId,
-      },
-      cookieHeader: _sessionCookie(sessionId),
+      queryParameters: _browserModelQueryParameters(),
+      cookieHeader: sessionIdForCookie == null
+          ? null
+          : _sessionCookie(sessionIdForCookie),
     );
   }
 
+  /// Post-login model read: cookie jar only; no `sessionId` query parameter.
+  Future<RouterHttpResponse> fetchAttWifiModelAuthenticated() {
+    return getPath(
+      AttWifiAuthSpec.modelJsonPath,
+      queryParameters: _browserModelQueryParameters(),
+    );
+  }
+
+  /// Debug-only redirect probe for post-login model (jar cookies only).
+  Future<void> debugProbePostLoginModel() {
+    return _networkService.logPostLoginModelProbe(
+      path: AttWifiAuthSpec.modelJsonPath,
+      queryParameters: _browserModelQueryParameters(),
+    );
+  }
+
+  static Map<String, String> _browserModelQueryParameters() {
+    return {
+      AttWifiAuthSpec.internalApiQueryFlag:
+          AttWifiAuthSpec.internalApiQueryValue,
+      AttWifiAuthSpec.cacheBustQueryParameter: _cacheBustValue(),
+    };
+  }
+
+  static String _cacheBustValue() {
+    final random = Random();
+    return '${DateTime.now().microsecondsSinceEpoch}${random.nextInt(1 << 20)}';
+  }
+
   Future<RouterHttpResponse> submitAttWifiForm({
-    required String sessionId,
     required Map<String, String> fields,
+    String? sessionIdForCookie,
   }) {
     return postForm(
       AttWifiAuthSpec.authenticationPath,
-      queryParameters: {AttWifiAuthSpec.sessionIdQueryParameter: sessionId},
       fields: fields,
-      cookieHeader: _sessionCookie(sessionId),
+      cookieHeader: sessionIdForCookie == null
+          ? null
+          : _sessionCookie(sessionIdForCookie),
     );
   }
 

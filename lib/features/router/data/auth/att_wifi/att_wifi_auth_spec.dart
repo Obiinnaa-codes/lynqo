@@ -28,6 +28,9 @@ abstract final class AttWifiAuthSpec {
   static const internalApiQueryFlag = 'internalapi';
   static const internalApiQueryValue = '1';
 
+  /// Cache-busting query parameter on `/api/model.json` (browser `x=`).
+  static const cacheBustQueryParameter = 'x';
+
   /// CSRF token from model JSON (`device.session.secToken` in UI).
   static const tokenFormField = 'token';
   static const secTokenJsonKey = 'secToken';

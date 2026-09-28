@@ -4,9 +4,16 @@
 ///
 ///   flutter run -t tool/att_wifi_dio_probe.dart -d <device_id>
 ///
-/// Optional env:
-///   ATT_WIFI_PROBE_PASSWORD  — if set, runs a real login POST (value never logged)
-///   ATT_WIFI_PROBE_PLATFORM  — label in logs (e.g. ios-simulator, android-emulator)
+/// Optional password for real login POST (value never logged):
+///   ATT_WIFI_PROBE_PASSWORD via shell export — visible to [Platform.environment]
+///     on desktop/host only; iOS/Android app processes do not inherit the shell.
+///   ATT_WIFI_PROBE_PASSWORD via --dart-define=ATT_WIFI_PROBE_PASSWORD=...
+///     required on iOS/Android (e.g. --dart-define=ATT_WIFI_PROBE_PASSWORD=\$ATT_WIFI_PROBE_PASSWORD).
+/// Optional env (desktop/host): ATT_WIFI_PROBE_PLATFORM — label in logs
+///
+/// Compile-time defines are baked on full `flutter run` only (not hot reload/restart).
+/// Diagnostic: --dart-define=PROBE_TEST_VALUE=hello (harmless; never log the value).
+library;
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -18,17 +25,57 @@ import 'package:lynqo/features/router/data/auth/att_wifi/att_wifi_auth_investiga
 import 'package:lynqo/features/router/data/auth/att_wifi/att_wifi_auth_spec.dart';
 import 'package:lynqo/features/router/data/discovery/router_discovery_service.dart';
 import 'package:lynqo/features/router/data/network/router_client_factory.dart';
+import 'package:lynqo/features/router/data/network/router_dio_error_details.dart';
 import 'package:lynqo/features/router/data/network/router_http_response.dart';
 import 'package:lynqo/features/router/data/network/sensitive_log_redactor.dart';
 import 'package:lynqo/features/router/domain/router_failure.dart';
+
+/// Compile-time `--dart-define=ATT_WIFI_PROBE_PASSWORD=...` (must be top-level const).
+const _attWifiProbePasswordFromDartDefine =
+    String.fromEnvironment('ATT_WIFI_PROBE_PASSWORD');
+
+/// Harmless canary for `--dart-define=PROBE_TEST_VALUE=hello`.
+const _probeTestValueFromDartDefine =
+    String.fromEnvironment('PROBE_TEST_VALUE');
+
+String? _resolveAttWifiProbePassword() {
+  if (_attWifiProbePasswordFromDartDefine.isNotEmpty) {
+    return _attWifiProbePasswordFromDartDefine;
+  }
+  final fromPlatform = Platform.environment['ATT_WIFI_PROBE_PASSWORD'];
+  if (fromPlatform != null && fromPlatform.isNotEmpty) {
+    return fromPlatform;
+  }
+  return null;
+}
+
+void _logAttWifiProbePasswordDiagnostics() {
+  final dartDefineDetected = _attWifiProbePasswordFromDartDefine.isNotEmpty;
+  final platformEnv = Platform.environment['ATT_WIFI_PROBE_PASSWORD'];
+  final platformEnvironmentDetected =
+      platformEnv != null && platformEnv.isNotEmpty;
+  final effectivePasswordDetected = _resolveAttWifiProbePassword() != null;
+  debugPrint(
+    '[AttWifiProbe] passwordDefineDiagnostics '
+    'dartDefineDetected=$dartDefineDetected '
+    'platformEnvironmentDetected=$platformEnvironmentDetected '
+    'effectivePasswordDetected=$effectivePasswordDetected',
+  );
+  debugPrint(
+    '[AttWifiProbe] PROBE_TEST_VALUE dartDefineDetected='
+    '${_probeTestValueFromDartDefine.isNotEmpty}',
+  );
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final platformLabel =
       Platform.environment['ATT_WIFI_PROBE_PLATFORM'] ?? Platform.operatingSystem;
   debugPrint('[AttWifiProbe] platform=$platformLabel');
+  _logAttWifiProbePasswordDiagnostics();
+  final probePassword = _resolveAttWifiProbePassword();
   try {
-    await runAttWifiDioProbe();
+    await runAttWifiDioProbe(probePassword: probePassword);
   } on RouterFailure catch (failure) {
     debugPrint(
       '[AttWifiProbe] aborted: ${failure.runtimeType} ${failure.message}',
@@ -44,7 +91,7 @@ void main() async {
   exit(0);
 }
 
-Future<void> runAttWifiDioProbe() async {
+Future<void> runAttWifiDioProbe({String? probePassword}) async {
   final config = router_cfg.RouterConfig.development().forProfile(
     RouterProfileCatalog.attWifi,
   );
@@ -70,15 +117,26 @@ Future<void> runAttWifiDioProbe() async {
   }
   debugPrint('[AttWifiProbe] sessionId present: yes (value [REDACTED])');
 
+  await _probeStep('GET /success.json (pre-auth, same jar)', () async {
+    final response = await net.get(AttWifiAuthSpec.successRedirectPath);
+    _logHttpSummary(response);
+    _logSafeBodyPreview(response.body);
+    debugPrint(
+      '[AttWifiProbe] session cookie in jar: '
+      '${await net.hasSessionIdCookieInJar() ? 'yes' : 'no'}',
+    );
+    return response;
+  });
+
   await _probeStep('GET model.json (pre-auth)', () async {
-    final response = await client.fetchAttWifiModel(sessionId: sessionId);
+    final response = await client.fetchAttWifiModel();
     _logHttpSummary(response);
     final role = AttWifiSessionParser.userRoleFromModelBody(response.body);
     debugPrint('[AttWifiProbe] userRole: ${role ?? 'unknown'}');
     return response;
   });
 
-  final model = await client.fetchAttWifiModel(sessionId: sessionId);
+  final model = await client.fetchAttWifiModel();
   final secToken = AttWifiSessionParser.secTokenFromModelBody(model.body);
   if (secToken == null) {
     debugPrint('[AttWifiProbe] ERROR: secToken missing');
@@ -88,11 +146,11 @@ Future<void> runAttWifiDioProbe() async {
 
   await _probeStep('POST /Forms/config (invalid password)', () async {
     final response = await client.submitAttWifiForm(
-      sessionId: sessionId,
       fields: {
         AttWifiAuthSpec.tokenFormField: secToken,
-        AttWifiAuthSpec.errorRedirectFormField: AttWifiAuthSpec.errorRedirectPath,
-        AttWifiAuthSpec.okRedirectFormField: AttWifiAuthSpec.successRedirectPath,
+        AttWifiAuthSpec.errorRedirectFormField:
+            AttWifiAuthSpec.htmlErrorRedirectPath,
+        AttWifiAuthSpec.okRedirectFormField: AttWifiAuthSpec.htmlOkRedirectPath,
         AttWifiAuthSpec.passwordFormField: 'probe-invalid-password',
       },
     );
@@ -100,9 +158,11 @@ Future<void> runAttWifiDioProbe() async {
     return response;
   });
 
-  final probePassword = Platform.environment['ATT_WIFI_PROBE_PASSWORD'];
-  if (probePassword != null && probePassword.isNotEmpty) {
-    final refreshed = await client.fetchAttWifiModel(sessionId: sessionId);
+  debugPrint(
+    '[AttWifiProbe] ATT_WIFI_PROBE_PASSWORD detected=${probePassword != null}',
+  );
+  if (probePassword != null) {
+    final refreshed = await client.fetchAttWifiModel();
     final token = AttWifiSessionParser.secTokenFromModelBody(refreshed.body);
     if (token == null) {
       debugPrint('[AttWifiProbe] ERROR: secToken missing before real login');
@@ -110,25 +170,27 @@ Future<void> runAttWifiDioProbe() async {
     }
     await _probeStep('POST /Forms/config (real login)', () async {
       final response = await client.submitAttWifiForm(
-        sessionId: sessionId,
         fields: {
           AttWifiAuthSpec.tokenFormField: token,
           AttWifiAuthSpec.errorRedirectFormField:
-              AttWifiAuthSpec.errorRedirectPath,
-          AttWifiAuthSpec.okRedirectFormField: AttWifiAuthSpec.successRedirectPath,
+              AttWifiAuthSpec.htmlErrorRedirectPath,
+          AttWifiAuthSpec.okRedirectFormField: AttWifiAuthSpec.htmlOkRedirectPath,
           AttWifiAuthSpec.passwordFormField: probePassword,
         },
       );
       _logHttpSummary(response);
-      final parsed = AttWifiLoginResponseParser.parse(response.body);
+      final parsed = AttWifiLoginResponseParser.parseHttpResponse(response);
       debugPrint(
         '[AttWifiProbe] login parse outcome: ${parsed.runtimeType}',
       );
       return response;
     });
 
-    await _probeStep('GET model.json (post-login)', () async {
-      final response = await client.fetchAttWifiModel(sessionId: sessionId);
+    final jarRotated = await net.readSessionIdFromCookieJar() != sessionId;
+    debugPrint('[AttWifiProbe] session cookie rotated: $jarRotated');
+    await client.debugProbePostLoginModel();
+    await _probeStep('GET model.json (post-login, jar cookies)', () async {
+      final response = await client.fetchAttWifiModelAuthenticated();
       _logHttpSummary(response);
       final role = AttWifiSessionParser.userRoleFromModelBody(response.body);
       debugPrint('[AttWifiProbe] post-login userRole: ${role ?? 'unknown'}');
@@ -202,7 +264,7 @@ Future<T> _probeStep<T>(String label, Future<T> Function() action) async {
     stopwatch.stop();
     debugPrint(
       '[AttWifiProbe] FAIL $label duration: ${stopwatch.elapsedMilliseconds}ms '
-      'exception type: ${error.type.name}',
+      '${RouterDioErrorDetails.formatSingleLine(error)}',
     );
     rethrow;
   }
@@ -216,6 +278,21 @@ Future<void> _logDnsResolution(String host) async {
   } on SocketException catch (error) {
     debugPrint('[AttWifiProbe] DNS $host FAILED: ${error.message}');
   }
+}
+
+void _logSafeBodyPreview(String body) {
+  final trimmed = body.trim();
+  if (trimmed.isEmpty) {
+    debugPrint('[AttWifiProbe] body preview: (empty)');
+    return;
+  }
+  if (trimmed.toLowerCase().contains('<html')) {
+    debugPrint('[AttWifiProbe] body preview: format=html');
+    return;
+  }
+  debugPrint(
+    '[AttWifiProbe] body preview: ${SensitiveLogRedactor.redactBody(trimmed)}',
+  );
 }
 
 void _logHttpSummary(RouterHttpResponse response) {

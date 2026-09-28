@@ -38,16 +38,26 @@ class RouterDiscoveryService {
         _clientFactory ?? RouterClientFactory(transportConfig: _config);
     final results = <RouterDiscoveryResult>[];
 
-    // Probe AT&T captive-DNS host before generic 192.168.0.1 to avoid connect
-    // timeouts on the wrong default gateway during Connect.
-    const profiles = [
+    final attBundle = factory.createForProfile(RouterProfileCatalog.attWifi);
+    final attResult = await attBundle.discoveryService.discoverProfile(
       RouterProfileCatalog.attWifi,
-      RouterProfileCatalog.defaultMifi,
-    ];
-    for (final profile in profiles) {
-      final bundle = factory.createForProfile(profile);
-      results.add(await bundle.discoveryService.discoverProfile(profile));
+    );
+    results.add(attResult);
+
+    // att_wifi uses http://attwifimanager/ only; do not probe 192.168.0.1 once
+    // the captive-DNS host is reachable (default_mifi profile unchanged).
+    if (attResult.isSuccess) {
+      return results;
     }
+
+    final mifiBundle = factory.createForProfile(
+      RouterProfileCatalog.defaultMifi,
+    );
+    results.add(
+      await mifiBundle.discoveryService.discoverProfile(
+        RouterProfileCatalog.defaultMifi,
+      ),
+    );
 
     return results;
   }

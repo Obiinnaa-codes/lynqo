@@ -113,11 +113,13 @@ void main() {
   });
 
   test(
-    'discoverKnownProfiles continues when one host is unavailable',
+    'discoverKnownProfiles skips 192.168.0.1 when attwifimanager is reachable',
     () async {
+      var mifiProbed = false;
       final service = buildDiscoveryService(
         handler: (options) async {
           if (options.baseUrl.contains('192.168.0.1')) {
+            mifiProbed = true;
             throw DioException(
               requestOptions: options,
               type: DioExceptionType.connectionError,
@@ -135,14 +137,44 @@ void main() {
 
       final results = await service.discoverKnownProfiles();
 
-      expect(results, hasLength(2));
+      expect(results, hasLength(1));
       expect(results[0].profile.id, 'att_wifi');
       expect(results[0].isSuccess, isTrue);
-      expect(results[1].profile.id, 'default_mifi');
-      expect(results[1].isSuccess, isFalse);
+      expect(mifiProbed, isFalse);
 
       final selected = RouterDiscoveryService.selectReachableProfile(results);
       expect(selected?.profile.id, 'att_wifi');
+    },
+  );
+
+  test(
+    'discoverKnownProfiles probes default_mifi when attwifimanager fails',
+    () async {
+      final service = buildDiscoveryService(
+        handler: (options) async {
+          if (options.baseUrl.contains('attwifimanager')) {
+            throw DioException(
+              requestOptions: options,
+              type: DioExceptionType.connectionError,
+            );
+          }
+          return mockResponse(
+            statusCode: 200,
+            body: '<html><title>MiFi</title></html>',
+            headers: {
+              'content-type': ['text/html'],
+            },
+          );
+        },
+      );
+
+      final results = await service.discoverKnownProfiles();
+
+      expect(results, hasLength(2));
+      expect(results[0].profile.id, 'att_wifi');
+      expect(results[0].isSuccess, isFalse);
+      expect(results[1].profile.id, 'default_mifi');
+      expect(results[1].isSuccess, isTrue);
     },
   );
 

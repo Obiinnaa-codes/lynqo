@@ -101,10 +101,13 @@ void main() {
     expect(outcome.discoveryAttempts, hasLength(2));
   });
 
-  test('selects second profile when first host is unavailable', () async {
+  test('selects att_wifi without probing 192.168.0.1 when attwifimanager works',
+      () async {
+    var mifiProbed = false;
     final repository = buildRepository(
       handler: (options) async {
         if (options.baseUrl.contains('192.168.0.1')) {
+          mifiProbed = true;
           throw DioException(
             requestOptions: options,
             type: DioExceptionType.connectionError,
@@ -128,9 +131,10 @@ void main() {
       password: 'password',
     );
 
+    expect(mifiProbed, isFalse);
     expect(outcome.connectionState, RouterConnectionState.reachable);
     expect(outcome.selectedProfile?.id, 'att_wifi');
-    expect(outcome.discoveryAttempts, hasLength(2));
+    expect(outcome.discoveryAttempts, hasLength(1));
     expect(
       outcome.authenticationState,
       RouterAuthenticationState.pendingApiIdentification,

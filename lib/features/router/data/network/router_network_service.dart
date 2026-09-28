@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cookie_jar/cookie_jar.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../../config/router_config.dart';
 import '../../domain/router_failure.dart';
 import 'router_connectivity_gate.dart';
+import 'router_http_diagnostic.dart';
 import 'router_http_response.dart';
 import 'sensitive_log_redactor.dart';
 
@@ -15,10 +17,9 @@ class RouterNetworkService {
   RouterNetworkService({
     required this._dio,
     required this._config,
-    CookieJar? cookieJar,
+    this._cookieJar,
     Future<List<ConnectivityResult>> Function()? connectivityCheck,
-  }) : _cookieJar = cookieJar,
-       _connectivityCheck =
+  }) : _connectivityCheck =
            connectivityCheck ?? (() => Connectivity().checkConnectivity());
 
   final Dio _dio;
@@ -43,6 +44,97 @@ class RouterNetworkService {
       }
     }
     return null;
+  }
+
+  Future<bool> hasSessionIdCookieInJar() async {
+    final sessionId = await readSessionIdFromCookieJar();
+    return sessionId != null;
+  }
+
+  Future<CookieSendReport> describeCookieAttachment({
+    String? explicitCookieHeader,
+    String? querySessionId,
+  }) async {
+    final jar = _cookieJar;
+    final uri = Uri.parse(_config.baseUrl);
+    final cookies = jar == null ? <Cookie>[] : await jar.loadForRequest(uri);
+    final jarSessionId = await readSessionIdFromCookieJar();
+    final queryMatches = querySessionId == null
+        ? false
+        : jarSessionId != null && jarSessionId == querySessionId;
+
+    return CookieSendReport(
+      jarContainsSession: jarSessionId != null,
+      explicitCookieHeader:
+          explicitCookieHeader != null && explicitCookieHeader.isNotEmpty,
+      jarCookieCount: cookies.length,
+      jarCookieNames: cookies.map((c) => c.name).toList(),
+      explicitCookieNames:
+          RouterHttpDiagnostic.explicitCookieNamesFromHeader(explicitCookieHeader),
+      querySessionMatchesJar: queryMatches,
+    );
+  }
+
+  /// Debug-only manual redirect chain for post-login model diagnostics.
+  Future<void> logPostLoginModelProbe({
+    required String path,
+    Map<String, String>? queryParameters,
+    String? cookieHeader,
+    int maxManualHops = 3,
+  }) async {
+    if (!kDebugMode || !_config.enableDevelopmentLogging) {
+      return;
+    }
+
+    final seen = <String>{};
+    var currentPath = path;
+    Map<String, String>? currentQuery = queryParameters;
+
+    for (var hop = 1; hop <= maxManualHops; hop++) {
+      final hopKey =
+          '$currentPath?${Uri(queryParameters: currentQuery).query}';
+      if (seen.contains(hopKey)) {
+        debugPrint(
+          '[Router] post-login model probe: server-side redirect loop suspected at hop=$hop',
+        );
+        return;
+      }
+      seen.add(hopKey);
+
+      final response = await get(
+        currentPath,
+        queryParameters: currentQuery,
+        cookieHeader: cookieHeader,
+        followRedirects: false,
+      );
+
+      RouterHttpDiagnostic.logHop(
+        hop: hop,
+        requestLabel: SensitiveLogRedactor.redactUrl(
+          Uri(
+            path: currentPath,
+            queryParameters: currentQuery,
+          ).toString(),
+        ),
+        response: response,
+      );
+
+      final status = response.statusCode;
+      if (status < 300 || status >= 400) {
+        return;
+      }
+
+      final location = _singleHeaderValue(response.headers, 'location');
+      if (location == null || location.isEmpty) {
+        return;
+      }
+
+      final redirectUri = _resolveRedirectUri(location);
+      currentPath = redirectUri.path.isEmpty ? '/' : redirectUri.path;
+      currentQuery = redirectUri.queryParameters.isEmpty
+          ? null
+          : redirectUri.queryParameters;
+    }
   }
 
   Future<void> ensureNetworkAvailable() async {
@@ -128,7 +220,7 @@ class RouterNetworkService {
         queryParameters: queryParameters,
         options: Options(
           responseType: ResponseType.bytes,
-          followRedirects: true,
+          followRedirects: false,
           maxRedirects: _formPostMaxRedirects,
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -149,6 +241,10 @@ class RouterNetworkService {
           statusCode: httpResponse.statusCode,
           location: location,
         );
+        await _logRedirectFollowCookies(
+          postResponse: httpResponse,
+          explicitCookieHeaderOnFollow: false,
+        );
         final redirectUri = _resolveRedirectUri(location);
         final followPath = redirectUri.path.isEmpty ? '/' : redirectUri.path;
         final followQuery = redirectUri.queryParameters.isEmpty
@@ -157,7 +253,11 @@ class RouterNetworkService {
         httpResponse = await get(
           followPath,
           queryParameters: followQuery,
-          cookieHeader: cookieHeader,
+        );
+        _logRedirectFollowResponse(followPath, httpResponse);
+        RouterHttpDiagnostic.logSetCookieNames(
+          'login redirect follow',
+          httpResponse,
         );
         return RouterHttpResponse(
           statusCode: httpResponse.statusCode,
@@ -274,6 +374,38 @@ class RouterNetworkService {
     );
   }
 
+  Future<void> _logRedirectFollowCookies({
+    required RouterHttpResponse postResponse,
+    required bool explicitCookieHeaderOnFollow,
+  }) async {
+    if (!kDebugMode || !_config.enableDevelopmentLogging) {
+      return;
+    }
+    final setCookie = postResponse.setCookieNames.isNotEmpty;
+    final jarHasSession = await hasSessionIdCookieInJar();
+    debugPrint(
+      '[Router] redirect follow cookies '
+      'set-cookie received: ${setCookie ? 'yes' : 'no'} '
+      'session cookie in jar: ${jarHasSession ? 'yes' : 'no'} '
+      'explicit cookie header on redirect follow: '
+      '${explicitCookieHeaderOnFollow ? 'yes' : 'no'}',
+    );
+  }
+
+  void _logRedirectFollowResponse(String path, RouterHttpResponse response) {
+    if (!kDebugMode || !_config.enableDevelopmentLogging) {
+      return;
+    }
+    final contentType = response.contentType ?? 'unknown';
+    final preview = SensitiveLogRedactor.redactBody(response.body.trim());
+    debugPrint(
+      '[Router] redirect follow response '
+      'path=$path status=${response.statusCode} '
+      'contentType=$contentType bodyLength=${response.body.length} '
+      'preview=$preview',
+    );
+  }
+
   RouterFailure _mapDioException(DioException error) {
     switch (error.type) {
       case DioExceptionType.connectionTimeout:
@@ -293,8 +425,29 @@ class RouterNetworkService {
       case DioExceptionType.transformTimeout:
         return const ConnectionTimeout();
       case DioExceptionType.unknown:
-        return RouterNotReachable(error.message ?? 'Could not reach the MiFi.');
+        return _mapUnknownDioException(error);
     }
+  }
+
+  RouterFailure _mapUnknownDioException(DioException error) {
+    final underlying = error.error;
+    if (underlying is SocketException) {
+      return const RouterNotReachable();
+    }
+    final message = error.message ?? '';
+    final underlyingType = underlying?.runtimeType.toString() ?? '';
+    if (underlyingType.contains('RedirectException') ||
+        message.contains('Redirect loop')) {
+      return const InvalidResponse(
+        'Post-login API redirect loop while reading router model.',
+      );
+    }
+    final detail = underlying != null
+        ? '$underlyingType: ${message.isNotEmpty ? message : underlying}'
+        : (message.isNotEmpty ? message : 'Unexpected error from the MiFi.');
+    return InvalidResponse(
+      'Unexpected response from the MiFi ($detail).',
+    );
   }
 
   Map<String, List<String>> _normalizeHeaders(

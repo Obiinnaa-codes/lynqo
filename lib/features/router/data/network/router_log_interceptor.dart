@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import 'router_dio_error_details.dart';
 import 'sensitive_log_redactor.dart';
 
 class RouterLogInterceptor extends Interceptor {
@@ -13,12 +14,12 @@ class RouterLogInterceptor extends Interceptor {
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     if (enabled) {
       options.extra[_startTimeKey] = DateTime.now().millisecondsSinceEpoch;
-      final cookieSent = _cookieHeaderSent(options);
+      final cookieViaHeader = _cookieHeaderSent(options);
       // ignore: avoid_print
       print(
         '[Router] --> ${options.method} '
         '${SensitiveLogRedactor.redactUrl(options.uri.toString())} '
-        'cookie sent: ${cookieSent ? 'yes' : 'no'}',
+        'cookie via header: ${cookieViaHeader ? 'yes' : 'no'}',
       );
     }
     handler.next(options);
@@ -61,9 +62,12 @@ class RouterLogInterceptor extends Interceptor {
       print(
         '[Router] ERROR ${err.requestOptions.method} '
         '${SensitiveLogRedactor.redactUrl(err.requestOptions.uri.toString())} '
-        'duration: ${durationMs}ms '
-        'exception type: ${err.type.name}',
+        'duration: ${durationMs}ms',
       );
+      for (final line in RouterDioErrorDetails.formatLines(err)) {
+        // ignore: avoid_print
+        print('[Router] ERROR detail $line');
+      }
     }
     handler.next(err);
   }
