@@ -1,0 +1,29 @@
+{
+  "session": {
+    "userRole": "Admin",
+    "secToken": "test-token"
+  },
+  "power": {
+    "battChargeLevel": 72,
+    "battChargeStatus": "Discharging"
+  },
+  "wwan": {
+    "connection": "Connected",
+    "currentPSserviceType": "LTE",
+    "signalStrength": {
+      "bars": 4
+    },
+    "dataUsage": {
+      "planDescription": "AT&T Mobile Share",
+      "serverDataTransferred": 3221225472,
+      "serverDataRemaining": 9663676416,
+      "generic": {
+        "billingCycleLimit": 12884901888,
+        "billingCycleRemainder": 1209600
+      }
+    }
+  },
+  "router": {
+    "clientList": [{}, {}, {}]
+  }
+}

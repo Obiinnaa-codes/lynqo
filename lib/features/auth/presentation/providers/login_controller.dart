@@ -72,7 +72,7 @@ class LoginController {
 
         if (outcome.authenticationState ==
             RouterAuthenticationState.authenticated) {
-          _ref.read(goRouterProvider).go(AppRoutes.routerConnectionTest);
+          _ref.read(goRouterProvider).go(AppRoutes.routerDashboard);
           return const LoginConnectOutcome(didNavigate: true);
         }
 
