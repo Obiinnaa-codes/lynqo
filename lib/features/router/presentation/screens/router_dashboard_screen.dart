@@ -1,11 +1,121 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
+import '../../../../core/routing/app_routes.dart';
 import '../../data/att_wifi_dashboard_service.dart';
+import '../../data/att_wifi_device_actions_service.dart';
+import '../../domain/router_connected_client.dart';
+import '../../domain/router_sms_message.dart';
 import '../../domain/router_status.dart';
+import '../../domain/router_wifi_band_snapshot.dart';
+import '../providers/router_auth_gate_provider.dart';
 import '../providers/router_dashboard_provider.dart';
+import '../providers/router_providers.dart';
+
+Future<void> _confirmAndRebootMiFi(BuildContext context, WidgetRef ref) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Reboot MiFi'),
+      content: const Text(
+        'Internet connectivity will be lost while the mobile router reboots. '
+        'Are you sure you want to continue?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Reboot'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed != true || !context.mounted) {
+    return;
+  }
+
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) => const PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: AppSpacing.md),
+            Expanded(child: Text('Sending reboot request…')),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  try {
+    await ref.read(attWifiDeviceActionsServiceProvider).rebootRouter();
+    if (!context.mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Rebooting. Reconnect to the MiFi Wi‑Fi when it comes back online.',
+        ),
+      ),
+    );
+    ref.invalidate(routerDashboardProvider);
+  } catch (error) {
+    if (!context.mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error.toString())),
+    );
+  }
+}
+
+Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Log out'),
+      content: const Text(
+        'You will need to sign in again to manage your MiFi.',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          child: const Text('Log out'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true && context.mounted) {
+    await _logout(context, ref);
+  }
+}
+
+Future<void> _logout(BuildContext context, WidgetRef ref) async {
+  await ref.read(routerAuthServiceProvider).logout();
+  ref.read(routerAuthGateProvider.notifier).markLoggedOut();
+  ref.invalidate(routerDashboardProvider);
+  if (context.mounted) {
+    context.go(AppRoutes.login);
+  }
+}
 
 class RouterDashboardScreen extends ConsumerWidget {
   const RouterDashboardScreen({super.key});
@@ -21,9 +131,19 @@ class RouterDashboardScreen extends ConsumerWidget {
         title: const Text('MiFi dashboard'),
         actions: [
           IconButton(
+            tooltip: 'Reboot MiFi',
+            onPressed: () => _confirmAndRebootMiFi(context, ref),
+            icon: const Icon(Icons.restart_alt),
+          ),
+          IconButton(
             tooltip: 'Refresh',
             onPressed: () => ref.invalidate(routerDashboardProvider),
             icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
+            tooltip: 'Log out',
+            onPressed: () => _confirmLogout(context, ref),
+            icon: const Icon(Icons.logout),
           ),
         ],
       ),
@@ -64,8 +184,13 @@ class RouterDashboardScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 _DashboardCard(
-                  title: 'Network',
-                  child: _NetworkSection(status: status),
+                  title: 'Connected devices',
+                  child: _ConnectedDevicesSection(status: status),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _DashboardCard(
+                  title: 'Messages',
+                  child: _MessagesSection(status: status),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
@@ -373,18 +498,157 @@ class _DataUsageSection extends StatelessWidget {
   }
 }
 
-class _WifiSection extends StatelessWidget {
+class _WifiSection extends StatefulWidget {
   const _WifiSection({required this.status});
 
   final RouterStatus status;
 
   @override
+  State<_WifiSection> createState() => _WifiSectionState();
+}
+
+class _WifiSectionState extends State<_WifiSection> {
+  static const _pageAnimationDuration = Duration(milliseconds: 280);
+
+  late final PageController _pageController;
+  var _pageIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  List<RouterWifiBandSnapshot> get _bands {
+    if (widget.status.wifiBandSnapshots.isNotEmpty) {
+      return widget.status.wifiBandSnapshots;
+    }
+    if (widget.status.wifiSsid == null && widget.status.wifiStatus == null) {
+      return const [];
+    }
+    return [
+      RouterWifiBandSnapshot(
+        bandLabel: widget.status.wifiBandLabel ?? 'Wi‑Fi',
+        ssid: widget.status.wifiSsid,
+        status: widget.status.wifiStatus,
+      ),
+    ];
+  }
+
+  void _goToPage(int index) {
+    if (index < 0 || index >= _bands.length) {
+      return;
+    }
+    _pageController.animateToPage(
+      index,
+      duration: _pageAnimationDuration,
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final bands = _bands;
+    if (bands.isEmpty) {
+      return Text(
+        'Wi‑Fi data not available from the router.',
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: AppColors.textSecondary,
+        ),
+      );
+    }
+
+    final multipleBands = bands.length > 1;
+    final theme = Theme.of(context).textTheme;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _MetricRow(label: 'SSID', value: status.wifiSsid),
-        const SizedBox(height: AppSpacing.sm),
-        _MetricRow(label: 'Status', value: status.wifiStatus),
+        if (multipleBands)
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Previous band',
+                onPressed: _pageIndex > 0 ? () => _goToPage(_pageIndex - 1) : null,
+                icon: const Icon(Icons.chevron_left),
+              ),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (var i = 0; i < bands.length; i++) ...[
+                      if (i > 0) const SizedBox(width: AppSpacing.sm),
+                      GestureDetector(
+                        onTap: () => _goToPage(i),
+                        child: AnimatedContainer(
+                          duration: _pageAnimationDuration,
+                          width: _pageIndex == i ? 10 : 8,
+                          height: _pageIndex == i ? 10 : 8,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: _pageIndex == i
+                                ? AppColors.primary
+                                : AppColors.border,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Next band',
+                onPressed: _pageIndex < bands.length - 1
+                    ? () => _goToPage(_pageIndex + 1)
+                    : null,
+                icon: const Icon(Icons.chevron_right),
+              ),
+            ],
+          ),
+        SizedBox(
+          height: multipleBands ? 132 : 112,
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (index) => setState(() => _pageIndex = index),
+            itemCount: bands.length,
+            itemBuilder: (context, index) {
+              final band = bands[index];
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    band.bandLabel,
+                    style: theme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _MetricRow(label: 'SSID', value: band.ssid),
+                  const SizedBox(height: AppSpacing.sm),
+                  _MetricRow(label: 'Status', value: band.status),
+                ],
+              );
+            },
+          ),
+        ),
+        if (widget.status.wifiProfile != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          _MetricRow(label: 'Profile', value: widget.status.wifiProfile),
+        ],
+        if (multipleBands) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Swipe or use arrows to view each band',
+            textAlign: TextAlign.center,
+            style: theme.bodySmall?.copyWith(color: AppColors.textSecondary),
+          ),
+        ],
       ],
     );
   }
@@ -427,17 +691,303 @@ class _CellularSection extends StatelessWidget {
   }
 }
 
-class _NetworkSection extends StatelessWidget {
-  const _NetworkSection({required this.status});
+class _ConnectedDevicesSection extends StatelessWidget {
+  const _ConnectedDevicesSection({required this.status});
 
   final RouterStatus status;
 
+  String _networkSubtitle(RouterConnectedClient client) {
+    final parts = <String>[];
+    if (client.ssid != null && client.ssid!.isNotEmpty) {
+      parts.add(client.ssid!);
+    }
+    if (client.bandLabel != null) {
+      parts.add(client.bandLabel!);
+    }
+    if (client.networkLabel != null) {
+      parts.add(client.networkLabel!);
+    }
+    return parts.isEmpty ? 'Wi‑Fi' : parts.join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final devices = status.connectedDeviceCount;
-    return _MetricRow(
-      label: 'Connected devices',
-      value: devices == null ? null : devices.toString(),
+    final clients = status.wifiConnectedClients;
+    final theme = Theme.of(context).textTheme;
+
+    if (status.connectedDeviceCount == null) {
+      return Text(
+        'Connected device data is not available from the router.',
+        style: theme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+      );
+    }
+
+    if (clients.isEmpty) {
+      return Text(
+        'No devices connected over Wi‑Fi.',
+        style: theme.bodyMedium?.copyWith(
+          color: AppColors.textSecondary,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '${clients.length} on Wi‑Fi',
+          style: theme.labelLarge?.copyWith(color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        ...clients.map(
+          (client) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.devices_other_outlined,
+                  size: 22,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        client.displayName,
+                        style: theme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _networkSubtitle(client),
+                        style: theme.bodySmall?.copyWith(
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      if (client.ipAddress != null &&
+                          client.ipAddress!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          client.ipAddress!,
+                          style: theme.bodySmall?.copyWith(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MessagesSection extends ConsumerWidget {
+  const _MessagesSection({required this.status});
+
+  final RouterStatus status;
+
+  Future<void> _confirmDeleteAll(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete all messages'),
+        content: const Text(
+          'Remove every SMS stored on the MiFi? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete all'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+    await _runMessageAction(
+      context,
+      ref,
+      () => ref.read(attWifiDeviceActionsServiceProvider).deleteAllSmsMessages(),
+      'All messages deleted.',
+    );
+  }
+
+  Future<void> _confirmDeleteOne(
+    BuildContext context,
+    WidgetRef ref,
+    RouterSmsMessage message,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete message'),
+        content: Text('Delete message from ${message.sender}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+    await _runMessageAction(
+      context,
+      ref,
+      () => ref
+          .read(attWifiDeviceActionsServiceProvider)
+          .deleteSmsMessage(message.id),
+      'Message deleted.',
+    );
+  }
+
+  Future<void> _runMessageAction(
+    BuildContext context,
+    WidgetRef ref,
+    Future<void> Function() action,
+    String successMessage,
+  ) async {
+    try {
+      await action();
+      ref.invalidate(routerDashboardProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(successMessage)),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final messages = status.smsMessages;
+    final unread = status.unreadSmsCount;
+
+    if (messages.isEmpty) {
+      return Text(
+        'No messages on the MiFi.',
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: AppColors.textSecondary,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (unread != null && unread > 0)
+              Expanded(
+                child: Text(
+                  '$unread unread',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: AppColors.primary,
+                  ),
+                ),
+              )
+            else
+              const Spacer(),
+            TextButton(
+              onPressed: () => _confirmDeleteAll(context, ref),
+              child: const Text('Delete all'),
+            ),
+          ],
+        ),
+        if (unread != null && unread > 0) const SizedBox(height: AppSpacing.sm),
+        ...messages.take(10).map(
+          (message) => _SmsTile(
+            message: message,
+            onDelete: () => _confirmDeleteOne(context, ref, message),
+          ),
+        ),
+        if (messages.length > 10) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            '${messages.length - 10} more on the router',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _SmsTile extends StatelessWidget {
+  const _SmsTile({required this.message, required this.onDelete});
+
+  final RouterSmsMessage message;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: message.read ? null : AppColors.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.sm),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      message.sender,
+                      style: textTheme.titleSmall?.copyWith(
+                        fontWeight:
+                            message.read ? FontWeight.normal : FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(message.text, style: textTheme.bodyMedium),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: 'Delete message',
+                onPressed: onDelete,
+                icon: const Icon(Icons.delete_outline, size: 20),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

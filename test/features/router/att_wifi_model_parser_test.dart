@@ -22,15 +22,33 @@ void main() {
     expect(status.dataValidState, 'Valid');
     expect(status.wifiSsid, 'MyHotspot');
     expect(status.wifiStatus, 'On');
+    expect(status.wifiProfile, 'Dual');
+    expect(status.wifiBandLabel, 'Dual band');
+    expect(status.wifiBandSnapshots, hasLength(2));
+    expect(status.wifiBandSnapshots.first.bandLabel, '2.4 GHz');
+    expect(status.wifiBandSnapshots.first.ssid, 'MyHotspot');
+    expect(status.wifiBandSnapshots.last.bandLabel, '5 GHz');
+    expect(status.wifiBandSnapshots.last.ssid, 'MyHotspot_5G');
     // share enabled: generic 2GB + (3.5GB all - 2GB server) = 3.5GB used
     expect(status.dataUsageBytes, 3758096384);
     expect(status.dataUsagePercent, 29);
     expect(status.billingDaysRemaining, 12);
     expect(status.planTitle, 'AT&T Mobile Share');
-    expect(status.connectedDeviceCount, 3);
+    expect(status.connectedDeviceCount, 2);
+    expect(status.wifiConnectedClients, hasLength(2));
+    expect(status.wifiConnectedClients.first.displayName, 'Pixel');
+    expect(status.wifiConnectedClients.first.ssid, 'MyHotspot');
+    expect(status.wifiConnectedClients.first.bandLabel, '2.4 GHz');
+    expect(status.wifiConnectedClients.last.displayName, 'iPad');
+    expect(status.wifiConnectedClients.last.ssid, 'MyHotspot_5G');
+    expect(status.wifiConnectedClients.last.bandLabel, '5 GHz');
     expect(status.dataUsedSummary, '3.5 GB');
     expect(status.dataLimitSummary, '12 GB');
     expect(status.nextBillingDateLabel, isNotNull);
+    expect(status.unreadSmsCount, 1);
+    expect(status.smsMessages, hasLength(1));
+    expect(status.smsMessages.first.sender, '+15551212');
+    expect(status.smsMessages.first.read, isFalse);
   });
 
   test('formatDataVolume handles small values', () {

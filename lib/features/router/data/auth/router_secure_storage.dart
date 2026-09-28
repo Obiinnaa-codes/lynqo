@@ -9,6 +9,8 @@ class RouterSecureStorage {
   static const sessionActiveKey = 'router_session_active';
   static const sessionProfileKey = 'router_session_profile';
   static const attSessionIdKey = 'router_att_session_id';
+  static const rememberPasswordEnabledKey = 'router_remember_password_enabled';
+  static const rememberedPasswordKey = 'router_remembered_password';
 
   final FlutterSecureStorage _storage;
 
@@ -43,5 +45,26 @@ class RouterSecureStorage {
     await _storage.delete(key: sessionActiveKey);
     await _storage.delete(key: attSessionIdKey);
     await _storage.delete(key: sessionProfileKey);
+  }
+
+  Future<bool> isRememberPasswordEnabled() async {
+    return await _storage.read(key: rememberPasswordEnabledKey) == 'true';
+  }
+
+  Future<String?> readRememberedPassword() async {
+    if (!await isRememberPasswordEnabled()) {
+      return null;
+    }
+    return _storage.read(key: rememberedPasswordKey);
+  }
+
+  Future<void> saveRememberedPassword(String password) async {
+    await _storage.write(key: rememberPasswordEnabledKey, value: 'true');
+    await _storage.write(key: rememberedPasswordKey, value: password);
+  }
+
+  Future<void> clearRememberedPassword() async {
+    await _storage.delete(key: rememberPasswordEnabledKey);
+    await _storage.delete(key: rememberedPasswordKey);
   }
 }

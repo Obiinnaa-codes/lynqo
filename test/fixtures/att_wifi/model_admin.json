@@ -39,11 +39,50 @@
   },
   "wifi": {
     "SSID": "MyHotspot",
+    "profile": "Dual",
+    "mode": "M802_11_BGN",
     "primary": {
-      "status": "On"
+      "status": "On",
+      "mode": "M802_11_BGN"
+    },
+    "secondary": {
+      "SSID": "MyHotspot_5G",
+      "status": "On",
+      "mode": "M802_11_ANAC"
     }
   },
   "router": {
-    "clientList": [{}, {}, {}]
+    "clientList": [
+      {
+        "name": "Pixel",
+        "IP": "192.168.1.12",
+        "MAC": "AA:BB:CC:11:22:01",
+        "source": "PrimaryAP"
+      },
+      {
+        "name": "iPad",
+        "IP": "192.168.1.13",
+        "MAC": "AA:BB:CC:11:22:02",
+        "source": "GuestAP"
+      },
+      {
+        "name": "Desktop",
+        "IP": "192.168.1.5",
+        "MAC": "AA:BB:CC:11:22:99",
+        "source": "Ethernet"
+      }
+    ]
+  },
+  "sms": {
+    "unreadMsgs": 1,
+    "msgs": [
+      {
+        "id": "1",
+        "sender": "+15551212",
+        "text": "Your AT&T usage update",
+        "read": false,
+        "rxTime": 1761955200
+      }
+    ]
   }
 }

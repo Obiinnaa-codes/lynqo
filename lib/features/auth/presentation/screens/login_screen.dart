@@ -6,6 +6,7 @@ import '../../../../core/constants/app_spacing.dart';
 import '../../../../shared/widgets/app_logo_placeholder.dart';
 import '../../../../shared/widgets/app_primary_button.dart';
 import '../../../../shared/widgets/login_credential_field.dart';
+import '../../../router/presentation/providers/router_providers.dart';
 import '../providers/login_controller.dart';
 
 /// Debug-only character counts via console only (on-screen [ListenableBuilder]
@@ -28,6 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _credentialsKey = GlobalKey<_LoginCredentialsPanelState>();
+  var _rememberPassword = false;
 
   @override
   void initState() {
@@ -36,6 +38,18 @@ class _LoginScreenState extends State<LoginScreen> {
       _usernameController.addListener(_logUsernameLength);
       _passwordController.addListener(_logPasswordLength);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadRememberedPassword());
+  }
+
+  Future<void> _loadRememberedPassword() async {
+    final storage = ProviderScope.containerOf(context, listen: false)
+        .read(routerSecureStorageProvider);
+    final password = await storage.readRememberedPassword();
+    if (!mounted || password == null) {
+      return;
+    }
+    _passwordController.text = password;
+    setState(() => _rememberPassword = true);
   }
 
   @override
@@ -67,6 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
         .connect(
           usernameFromField: _usernameController.text,
           passwordFromField: _passwordController.text,
+          rememberPassword: _rememberPassword,
         );
   }
 
@@ -106,7 +121,13 @@ class _LoginScreenState extends State<LoginScreen> {
             showDiagnostics: _showLoginInputDiagnostics,
           ),
           const SizedBox(height: AppSpacing.xl),
-          _LoginActionsPanel(onConnect: _handleConnect),
+          _LoginActionsPanel(
+            rememberPassword: _rememberPassword,
+            onRememberPasswordChanged: (value) {
+              setState(() => _rememberPassword = value);
+            },
+            onConnect: _handleConnect,
+          ),
           const SizedBox(height: AppSpacing.lg),
           Text(
             'Router credentials are used to connect to your MiFi.',
@@ -195,7 +216,7 @@ class _LoginHeader extends StatelessWidget {
         const Center(child: AppLogoPlaceholder()),
         const SizedBox(height: AppSpacing.lg),
         Text(
-          'MiFi',
+          'Lynqo',
           textAlign: TextAlign.center,
           style: textTheme.headlineLarge,
         ),
@@ -212,9 +233,15 @@ class _LoginHeader extends StatelessWidget {
 
 /// Connect button + router message only — [setState] here does not rebuild fields.
 class _LoginActionsPanel extends StatefulWidget {
-  const _LoginActionsPanel({required this.onConnect});
+  const _LoginActionsPanel({
+    required this.onConnect,
+    required this.rememberPassword,
+    required this.onRememberPasswordChanged,
+  });
 
   final Future<LoginConnectOutcome> Function() onConnect;
+  final bool rememberPassword;
+  final ValueChanged<bool> onRememberPasswordChanged;
 
   @override
   State<_LoginActionsPanel> createState() => _LoginActionsPanelState();
@@ -255,6 +282,18 @@ class _LoginActionsPanelState extends State<_LoginActionsPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          controlAffinity: ListTileControlAffinity.leading,
+          title: Text(
+            'Remember password',
+            style: textTheme.bodyMedium,
+          ),
+          value: widget.rememberPassword,
+          onChanged: (value) =>
+              widget.onRememberPasswordChanged(value ?? false),
+        ),
+        const SizedBox(height: AppSpacing.sm),
         AppPrimaryButton(
           label: 'Connect',
           isLoading: _isSubmitting,

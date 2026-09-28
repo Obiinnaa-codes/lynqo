@@ -1,3 +1,7 @@
+import 'router_connected_client.dart';
+import 'router_sms_message.dart';
+import 'router_wifi_band_snapshot.dart';
+
 class RouterStatus {
   const RouterStatus({
     this.batteryPercent,
@@ -25,9 +29,15 @@ class RouterStatus {
     this.dataValidState,
     this.wifiSsid,
     this.wifiStatus,
+    this.wifiProfile,
+    this.wifiBandLabel,
+    this.wifiBandSnapshots = const [],
     this.uploadSpeedBps,
     this.downloadSpeedBps,
     this.connectedDeviceCount,
+    this.wifiConnectedClients = const [],
+    this.smsMessages = const [],
+    this.unreadSmsCount,
   });
 
   final int? batteryPercent;
@@ -55,7 +65,13 @@ class RouterStatus {
   final String? dataValidState;
   final String? wifiSsid;
   final String? wifiStatus;
+  final String? wifiProfile;
+  final String? wifiBandLabel;
+  final List<RouterWifiBandSnapshot> wifiBandSnapshots;
   final int? uploadSpeedBps;
   final int? downloadSpeedBps;
   final int? connectedDeviceCount;
+  final List<RouterConnectedClient> wifiConnectedClients;
+  final List<RouterSmsMessage> smsMessages;
+  final int? unreadSmsCount;
 }

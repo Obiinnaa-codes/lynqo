@@ -65,4 +65,31 @@ abstract final class AttWifiAuthSpec {
 
   /// Logout via empty password submit on the same endpoint.
   static const logoutPasswordValue = '';
+
+  /// Full device reboot (web menu: Reboot Mobile Router).
+  static const shutdownFormField = 'general.shutdown';
+
+  /// Browser `deviceRestart` handler value (not `Restart` used after some form saves).
+  static const rebootShutdownValue = 'restart';
+
+  static const wifiProfileFormField = 'wifi.profile';
+  static const wifiProfile24Ghz = 'WiFi24GHz';
+  static const wifiProfile5Ghz = 'WiFi5GHz';
+
+  static const smsDeleteIdFormField = 'sms.deleteId';
+  static const smsDeleteAllFormField = 'sms.deleteAll';
+  static const smsDeleteAllValue = '1';
+
+  /// Builds POST fields for immediate actions (`Ea.de()` JSON redirect parity).
+  static Map<String, String> jsonActionFields({
+    required String secToken,
+    required Map<String, String> data,
+  }) {
+    return {
+      ...data,
+      tokenFormField: secToken,
+      errorRedirectFormField: errorRedirectPath,
+      okRedirectFormField: successRedirectPath,
+    };
+  }
 }

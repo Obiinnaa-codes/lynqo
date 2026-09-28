@@ -5,6 +5,7 @@ import '../../../../core/routing/app_router.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../router/domain/router_authentication_state.dart';
 import '../../../router/domain/router_connection_state.dart';
+import '../../../router/presentation/providers/router_auth_gate_provider.dart';
 import '../../../router/presentation/providers/router_providers.dart';
 
 /// Result of a login connect attempt for the UI (no Riverpod rebuild of text fields).
@@ -35,6 +36,7 @@ class LoginController {
   Future<LoginConnectOutcome> connect({
     required String usernameFromField,
     required String passwordFromField,
+    required bool rememberPassword,
   }) async {
     if (_connectInFlight) {
       return const LoginConnectOutcome();
@@ -72,6 +74,13 @@ class LoginController {
 
         if (outcome.authenticationState ==
             RouterAuthenticationState.authenticated) {
+          final storage = _ref.read(routerSecureStorageProvider);
+          if (rememberPassword) {
+            await storage.saveRememberedPassword(password);
+          } else {
+            await storage.clearRememberedPassword();
+          }
+          _ref.read(routerAuthGateProvider.notifier).markAuthenticated();
           _ref.read(goRouterProvider).go(AppRoutes.routerDashboard);
           return const LoginConnectOutcome(didNavigate: true);
         }

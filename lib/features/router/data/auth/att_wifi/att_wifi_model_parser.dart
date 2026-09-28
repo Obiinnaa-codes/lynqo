@@ -1,6 +1,9 @@
 import 'dart:convert';
 
+import '../../../domain/router_connected_client.dart';
+import '../../../domain/router_sms_message.dart';
 import '../../../domain/router_status.dart';
+import '../../../domain/router_wifi_band_snapshot.dart';
 
 /// Maps AT&T WiFi Manager `/api/model.json` into [RouterStatus] for the dashboard.
 ///
@@ -47,11 +50,50 @@ abstract final class AttWifiModelParser {
       _intFromPaths(decoded, _nextBillingDatePaths),
     );
 
-    final clientList = _readFirst(decoded, _clientListPaths);
-    final connectedDeviceCount = clientList is List ? clientList.length : null;
-
     final wifiSsid = _stringFromPaths(decoded, _wifiSsidPaths);
+    final wifiPrimaryMode = _stringFromPaths(decoded, _wifiPrimaryModePaths);
+    final wifiSecondaryMode = _stringFromPaths(decoded, _wifiSecondaryModePaths);
+    final wifiGuestApSsid = _stringFromPaths(decoded, _wifiGuestApSsidPaths);
+    final wifiGuestApMode = _stringFromPaths(decoded, _wifiGuestApModePaths);
+    final wifiGuestApAuxMode = _stringFromPaths(decoded, _wifiGuestApAuxModePaths);
     final wifiStatus = _stringFromPaths(decoded, _wifiStatusPaths);
+    final wifiProfile = _stringFromPaths(decoded, _wifiProfilePaths);
+    final wifiMode = _stringFromPaths(decoded, _wifiModePaths);
+    final wifiBandLabel = _wifiBandLabel(
+      profile: wifiProfile,
+      mode: wifiMode,
+    );
+    final wifiSecondarySsid = _stringFromPaths(decoded, _wifiSecondarySsidPaths);
+    final wifiBandSnapshots = _wifiBandSnapshots(
+      profile: wifiProfile,
+      mode: wifiMode,
+      primarySsid: wifiSsid,
+      primaryStatus: wifiStatus,
+      secondarySsid: wifiSecondarySsid,
+      secondaryStatus: _stringFromPaths(decoded, _wifiSecondaryStatusPaths),
+    );
+
+    final clientListRaw = _readFirst(decoded, _clientListPaths);
+    final wifiConnectedClients = clientListRaw is List
+        ? _parseWifiConnectedClients(
+            clientListRaw,
+            primarySsid: wifiSsid,
+            secondarySsid: wifiSecondarySsid,
+            primaryMode: wifiPrimaryMode ?? wifiMode,
+            secondaryMode: wifiSecondaryMode,
+            guestApSsid: wifiGuestApSsid,
+            guestApMode: wifiGuestApMode,
+            guestApAuxMode: wifiGuestApAuxMode,
+          )
+        : const <RouterConnectedClient>[];
+    final connectedDeviceCount = clientListRaw is List
+        ? wifiConnectedClients.length
+        : null;
+
+    final smsMessages = parseSmsMessages(decoded);
+    final unreadSmsCount =
+        _intFromPaths(decoded, _smsUnreadPaths) ??
+        smsMessages.where((m) => !m.read).length;
 
     return RouterStatus(
       batteryPercent: batteryPercent,
@@ -79,8 +121,239 @@ abstract final class AttWifiModelParser {
       dataValidState: dataValidState,
       wifiSsid: wifiSsid,
       wifiStatus: wifiStatus,
+      wifiProfile: wifiProfile,
+      wifiBandLabel: wifiBandLabel,
+      wifiBandSnapshots: wifiBandSnapshots,
       connectedDeviceCount: connectedDeviceCount,
+      wifiConnectedClients: wifiConnectedClients,
+      smsMessages: smsMessages,
+      unreadSmsCount: smsMessages.isEmpty ? null : unreadSmsCount,
     );
+  }
+
+  static String? _wifiBandLabel({
+    required String? profile,
+    required String? mode,
+  }) {
+    if (profile != null) {
+      if (profile.contains('24') || profile == 'WiFi24GHz') {
+        return '2.4 GHz';
+      }
+      if (profile.contains('5') || profile == 'WiFi5GHz') {
+        return '5 GHz';
+      }
+      if (profile == 'Dual' || profile == 'DualGuest') {
+        return 'Dual band';
+      }
+    }
+    if (mode == null) {
+      return null;
+    }
+    if (mode.contains('BGN') || mode.contains('BG')) {
+      return '2.4 GHz';
+    }
+    if (mode.contains('ANAC') || mode.contains('AC')) {
+      return '5 GHz';
+    }
+    return null;
+  }
+
+  static List<RouterWifiBandSnapshot> _wifiBandSnapshots({
+    required String? profile,
+    required String? mode,
+    required String? primarySsid,
+    required String? primaryStatus,
+    required String? secondarySsid,
+    required String? secondaryStatus,
+  }) {
+    if (profile == 'Dual' || profile == 'DualGuest') {
+      return [
+        RouterWifiBandSnapshot(
+          bandLabel: '2.4 GHz',
+          ssid: primarySsid,
+          status: primaryStatus,
+        ),
+        RouterWifiBandSnapshot(
+          bandLabel: '5 GHz',
+          ssid: secondarySsid ?? _guess5GhzSsid(primarySsid),
+          status: secondaryStatus ?? primaryStatus,
+        ),
+      ];
+    }
+
+    if (profile == 'WiFi5GHz' || profile == 'WiFi5GHzGuest') {
+      return [
+        RouterWifiBandSnapshot(
+          bandLabel: '5 GHz',
+          ssid: primarySsid,
+          status: primaryStatus,
+        ),
+      ];
+    }
+
+    if (profile == 'WiFi24GHz' || profile == 'WiFi24GHzGuest') {
+      return [
+        RouterWifiBandSnapshot(
+          bandLabel: '2.4 GHz',
+          ssid: primarySsid,
+          status: primaryStatus,
+        ),
+      ];
+    }
+
+    if (secondarySsid != null && secondarySsid.isNotEmpty) {
+      return [
+        RouterWifiBandSnapshot(
+          bandLabel: '2.4 GHz',
+          ssid: primarySsid,
+          status: primaryStatus,
+        ),
+        RouterWifiBandSnapshot(
+          bandLabel: '5 GHz',
+          ssid: secondarySsid,
+          status: secondaryStatus ?? primaryStatus,
+        ),
+      ];
+    }
+
+    final label = _wifiBandLabel(profile: profile, mode: mode) ?? 'Wi‑Fi';
+    if (primarySsid == null && primaryStatus == null) {
+      return const [];
+    }
+    return [
+      RouterWifiBandSnapshot(
+        bandLabel: label,
+        ssid: primarySsid,
+        status: primaryStatus,
+      ),
+    ];
+  }
+
+  static List<RouterConnectedClient> _parseWifiConnectedClients(
+    List<dynamic> clientList, {
+    required String? primarySsid,
+    required String? secondarySsid,
+    required String? primaryMode,
+    required String? secondaryMode,
+    required String? guestApSsid,
+    required String? guestApMode,
+    required String? guestApAuxMode,
+  }) {
+    final clients = <RouterConnectedClient>[];
+    for (final item in clientList) {
+      if (item is! Map) {
+        continue;
+      }
+      final map = item.cast<String, dynamic>();
+      final source = map['source']?.toString();
+      if (source == null || source.isEmpty) {
+        continue;
+      }
+      if (source == 'USB' || source == 'Ethernet') {
+        continue;
+      }
+
+      final mac = map['MAC']?.toString();
+      final ip = map['IP']?.toString();
+      final rawName = map['name']?.toString();
+      final hasUsableName =
+          rawName != null && rawName.isNotEmpty && rawName != '*';
+      final displayName = hasUsableName ? rawName : mac;
+      if (displayName == null || displayName.isEmpty) {
+        continue;
+      }
+
+      String? ssid;
+      String? bandLabel;
+      String? networkLabel;
+
+      switch (source) {
+        case 'PrimaryAP':
+          ssid = primarySsid;
+          bandLabel = _bandLabelFromMode(primaryMode);
+        case 'GuestAP':
+          ssid = secondarySsid;
+          bandLabel = _bandLabelFromMode(secondaryMode);
+        case 'AuxAP':
+          networkLabel = guestApAuxMode == 'Arlo' ? 'Arlo' : 'Guest';
+          ssid = guestApSsid;
+          bandLabel = _bandLabelFromMode(guestApMode);
+        default:
+          continue;
+      }
+
+      clients.add(
+        RouterConnectedClient(
+          displayName: displayName,
+          ipAddress: ip,
+          macAddress: mac,
+          ssid: ssid,
+          bandLabel: bandLabel,
+          networkLabel: networkLabel,
+        ),
+      );
+    }
+    return clients;
+  }
+
+  static String? _bandLabelFromMode(String? mode) {
+    if (mode == null || mode.isEmpty) {
+      return null;
+    }
+    if (mode.contains('ANAC') || mode.contains('AC')) {
+      return '5 GHz';
+    }
+    if (mode.contains('BGN') || mode.contains('BG')) {
+      return '2.4 GHz';
+    }
+    return null;
+  }
+
+  static String? _guess5GhzSsid(String? primarySsid) {
+    if (primarySsid == null || primarySsid.isEmpty) {
+      return null;
+    }
+    if (primarySsid.endsWith('_5G')) {
+      return primarySsid;
+    }
+    if (primarySsid.length <= 29) {
+      return '${primarySsid}_5G';
+    }
+    return '${primarySsid.substring(0, 28)}_5G';
+  }
+
+  static List<RouterSmsMessage> parseSmsMessages(Map<String, dynamic> root) {
+    final raw = _readFirst(root, _smsMessagesPaths);
+    if (raw is! List) {
+      return const [];
+    }
+    final messages = <RouterSmsMessage>[];
+    for (final item in raw) {
+      if (item is! Map) {
+        continue;
+      }
+      final map = Map<String, dynamic>.from(item);
+      final id = map['id']?.toString();
+      final text = map['text']?.toString();
+      if (id == null || id.isEmpty || text == null) {
+        continue;
+      }
+      messages.add(
+        RouterSmsMessage(
+          id: id,
+          sender: map['sender']?.toString() ?? 'Unknown',
+          text: text.trim(),
+          read: _parseBool(map['read']) ?? false,
+          receivedEpochSeconds: _coerceInt(map['rxTime']),
+        ),
+      );
+    }
+    messages.sort(
+      (a, b) => (b.receivedEpochSeconds ?? 0).compareTo(
+        a.receivedEpochSeconds ?? 0,
+      ),
+    );
+    return messages;
   }
 
   static String? formatDataVolume(int? bytes) {
@@ -373,5 +646,57 @@ abstract final class AttWifiModelParser {
   static const _wifiStatusPaths = [
     ['wifi', 'primary', 'status'],
     ['wifi', 'status'],
+  ];
+
+  static const _wifiProfilePaths = [
+    ['wifi', 'profile'],
+  ];
+
+  static const _wifiModePaths = [
+    ['wifi', 'mode'],
+    ['wifi', 'primary', 'mode'],
+  ];
+
+  static const _wifiSecondarySsidPaths = [
+    ['wifi', 'secondary', 'SSID'],
+    ['wifi', 'guest', 'SSID'],
+  ];
+
+  static const _wifiSecondaryStatusPaths = [
+    ['wifi', 'secondary', 'status'],
+    ['wifi', 'guest', 'status'],
+  ];
+
+  static const _wifiPrimaryModePaths = [
+    ['wifi', 'primary', 'mode'],
+    ['wifi', 'mode'],
+  ];
+
+  static const _wifiSecondaryModePaths = [
+    ['wifi', 'secondary', 'mode'],
+    ['wifi', 'guest', 'mode'],
+  ];
+
+  static const _wifiGuestApSsidPaths = [
+    ['wifi', 'guestAP', 'SSID'],
+    ['wifi', 'aux', 'SSID'],
+  ];
+
+  static const _wifiGuestApModePaths = [
+    ['wifi', 'guestAP', 'mode'],
+    ['wifi', 'aux', 'mode'],
+  ];
+
+  static const _wifiGuestApAuxModePaths = [
+    ['wifi', 'guestAP', 'AuxMode'],
+    ['wifi', 'aux', 'AuxMode'],
+  ];
+
+  static const _smsMessagesPaths = [
+    ['sms', 'msgs'],
+  ];
+
+  static const _smsUnreadPaths = [
+    ['sms', 'unreadMsgs'],
   ];
 }
