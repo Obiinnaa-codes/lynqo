@@ -26,6 +26,17 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.example.lynqo.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>lynqo</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Lynqo connects to your MiFi on the local network to monitor and manage the device.</string>
 	<key>NSAppTransportSecurity</key>

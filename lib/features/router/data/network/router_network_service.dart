@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../config/router_config.dart';
 import '../../domain/router_failure.dart';
+import '../auth/att_wifi/att_wifi_auth_spec.dart';
 import 'router_connectivity_gate.dart';
 import 'router_http_diagnostic.dart';
 import 'router_http_response.dart';
@@ -163,42 +164,129 @@ class RouterNetworkService {
     String? cookieHeader,
   }) async {
     try {
-      final response = await _dio.get<List<int>>(
-        path,
-        queryParameters: queryParameters,
-        options: Options(
-          responseType: ResponseType.bytes,
-          followRedirects: followRedirects,
-          headers: cookieHeader == null ? null : {'Cookie': cookieHeader},
-        ),
-      );
+      if (!followRedirects) {
+        return _getWithoutRedirectFollow(
+          path,
+          queryParameters: queryParameters,
+          cookieHeader: cookieHeader,
+        );
+      }
 
-      final bytes = response.data ?? const <int>[];
-      final truncated = bytes.length > _config.maxResponseBodyBytes;
-      final capped = truncated
-          ? bytes.sublist(0, _config.maxResponseBodyBytes)
-          : bytes;
-      final body = utf8.decode(capped, allowMalformed: true);
+      var currentPath = path;
+      Map<String, String>? currentQuery = queryParameters;
+      var redirectDetected = false;
 
-      final status = response.statusCode;
-      final redirectDetected =
-          (status != null && status >= 300 && status < 400) ||
-          response.requestOptions.uri.toString() != response.realUri.toString();
+      for (var hop = 0; hop < _maxGetRedirects; hop++) {
+        final response = await _dio.get<List<int>>(
+          currentPath,
+          queryParameters: currentQuery,
+          options: Options(
+            responseType: ResponseType.bytes,
+            followRedirects: false,
+            headers: _outboundHeaders(cookieHeader: cookieHeader),
+          ),
+        );
 
-      return RouterHttpResponse(
-        statusCode: response.statusCode ?? 0,
-        headers: _normalizeHeaders(response.headers.map),
-        body: body,
-        requestUrl: response.realUri.toString(),
-        redirectDetected: redirectDetected,
-        bodyTruncated: truncated,
-      );
+        final httpResponse = _responseFromDio(response);
+        final status = httpResponse.statusCode;
+        if (status < 300 || status >= 400) {
+          return RouterHttpResponse(
+            statusCode: httpResponse.statusCode,
+            headers: httpResponse.headers,
+            body: httpResponse.body,
+            requestUrl: httpResponse.requestUrl,
+            redirectDetected: redirectDetected,
+            bodyTruncated: httpResponse.bodyTruncated,
+          );
+        }
+
+        final location = _singleHeaderValue(httpResponse.headers, 'location');
+        if (location == null || location.isEmpty) {
+          return RouterHttpResponse(
+            statusCode: httpResponse.statusCode,
+            headers: httpResponse.headers,
+            body: httpResponse.body,
+            requestUrl: httpResponse.requestUrl,
+            redirectDetected: true,
+            bodyTruncated: httpResponse.bodyTruncated,
+          );
+        }
+
+        redirectDetected = true;
+        final nextUri = _mapLogicalHostToGateway(
+          _resolveRedirectUri(location),
+        );
+        currentPath = nextUri.path.isEmpty ? '/' : nextUri.path;
+        currentQuery = nextUri.queryParameters.isEmpty
+            ? null
+            : nextUri.queryParameters;
+      }
+
+      throw const InvalidResponse('Too many redirects from the MiFi.');
     } on DioException catch (error) {
       throw _mapDioException(error);
     }
   }
 
+  static const _maxGetRedirects = 6;
   static const _formPostMaxRedirects = 5;
+
+  Future<RouterHttpResponse> _getWithoutRedirectFollow(
+    String path, {
+    Map<String, String>? queryParameters,
+    String? cookieHeader,
+  }) async {
+    final response = await _dio.get<List<int>>(
+      path,
+      queryParameters: queryParameters,
+      options: Options(
+        responseType: ResponseType.bytes,
+        followRedirects: false,
+        headers: _outboundHeaders(cookieHeader: cookieHeader),
+      ),
+    );
+    final httpResponse = _responseFromDio(response);
+    final status = httpResponse.statusCode;
+    final redirectDetected = status >= 300 && status < 400;
+    return RouterHttpResponse(
+      statusCode: httpResponse.statusCode,
+      headers: httpResponse.headers,
+      body: httpResponse.body,
+      requestUrl: httpResponse.requestUrl,
+      redirectDetected: redirectDetected,
+      bodyTruncated: httpResponse.bodyTruncated,
+    );
+  }
+
+  Map<String, String>? _outboundHeaders({String? cookieHeader}) {
+    final headers = <String, String>{};
+    if (cookieHeader != null && cookieHeader.isNotEmpty) {
+      headers['Cookie'] = cookieHeader;
+    }
+    if (_usesAttWifiGatewayHostHeader) {
+      headers['Host'] = AttWifiAuthSpec.captiveHostname;
+    }
+    return headers.isEmpty ? null : headers;
+  }
+
+  bool get _usesAttWifiGatewayHostHeader {
+    return _config.profile.id == AttWifiAuthSpec.profileId &&
+        _config.host != AttWifiAuthSpec.captiveHostname;
+  }
+
+  Uri _mapLogicalHostToGateway(Uri uri) {
+    final gateway = Uri.parse(_config.baseUrl);
+    if (_config.profile.id == AttWifiAuthSpec.profileId &&
+        uri.host == AttWifiAuthSpec.captiveHostname &&
+        gateway.host != uri.host) {
+      return uri.replace(
+        scheme: gateway.scheme,
+        host: gateway.host,
+        port: gateway.hasPort ? gateway.port : null,
+      );
+    }
+    return uri;
+  }
 
   Future<RouterHttpResponse> postForm(
     String path, {
@@ -225,8 +313,8 @@ class RouterNetworkService {
           maxRedirects: _formPostMaxRedirects,
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
-            if (referer != null) 'Referer': referer,
-            'Cookie': ?cookieHeader,
+            'Referer': ?referer,
+            ...?_outboundHeaders(cookieHeader: cookieHeader),
           },
         ),
       );
@@ -336,7 +424,7 @@ class RouterNetworkService {
       return Uri.parse(_config.baseUrl);
     }
     if (parsed.hasScheme) {
-      return parsed;
+      return _mapLogicalHostToGateway(parsed);
     }
     final base = Uri.parse(_config.baseUrl);
     if (location.startsWith('/')) {

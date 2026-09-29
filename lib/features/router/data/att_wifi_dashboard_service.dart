@@ -9,10 +9,9 @@ import 'network/router_client_factory.dart';
 
 class AttWifiDashboardService {
   AttWifiDashboardService({
-    required RouterClientFactory clientFactory,
+    required this._clientFactory,
     required RouterSecureStorage secureStorage,
-  }) : _clientFactory = clientFactory,
-       _secureStorage = secureStorage;
+  }) : _secureStorage = secureStorage;
 
   final RouterClientFactory _clientFactory;
   final RouterSecureStorage _secureStorage;

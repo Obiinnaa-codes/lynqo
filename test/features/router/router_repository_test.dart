@@ -14,6 +14,7 @@ import 'package:lynqo/features/router/data/router_api_client.dart';
 import 'package:lynqo/features/router/data/router_repository.dart';
 import 'package:lynqo/features/router/domain/router_authentication_state.dart';
 import 'package:lynqo/features/router/domain/router_connection_state.dart';
+import 'package:lynqo/features/router/data/network/router_connectivity_gate.dart';
 import 'package:lynqo/features/router/domain/router_failure.dart';
 
 import 'mocks/mock_http_adapter.dart';
@@ -77,8 +78,13 @@ void main() {
       password: 'password',
     );
 
-    expect(outcome.failure, isA<NetworkUnavailable>());
-    expect(outcome.connectionState, RouterConnectionState.error);
+    if (isDesktopPlatform()) {
+      // Desktop skips connectivity-only-none; discovery still runs.
+      expect(outcome.failure, isNot(isA<NetworkUnavailable>()));
+    } else {
+      expect(outcome.failure, isA<NetworkUnavailable>());
+      expect(outcome.connectionState, RouterConnectionState.error);
+    }
   });
 
   test('returns unreachable when all router hosts fail', () async {
@@ -145,13 +151,24 @@ void main() {
   test(
     'returns pending auth when default MiFi router responds with HTML login',
     () async {
+      var gatewayProbeCount = 0;
       final repository = buildRepository(
         handler: (options) async {
-          if (options.baseUrl.contains('attwifimanager')) {
+          final url = options.baseUrl;
+          if (url.contains('attwifimanager') || url.contains('192.168.1.1')) {
             throw DioException(
               requestOptions: options,
               type: DioExceptionType.connectionError,
             );
+          }
+          if (url.contains('192.168.0.1')) {
+            gatewayProbeCount++;
+            if (gatewayProbeCount < 2) {
+              throw DioException(
+                requestOptions: options,
+                type: DioExceptionType.connectionError,
+              );
+            }
           }
           return mockResponse(
             statusCode: 200,

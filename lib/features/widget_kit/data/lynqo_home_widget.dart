@@ -10,7 +10,10 @@ import '../domain/lynqo_router_widget_snapshot_json.dart';
 abstract final class LynqoHomeWidget {
   static const appGroupId = 'group.com.example.lynqo';
   static const snapshotKey = 'lynqo_widget_snapshot_v1';
-  static const iOSWidgetKind = 'LynqoWidget';
+  /// Must match `kind` in ios/LynqoWidget/LynqoWidget.swift (`LynqoMiFiHomeWidget`).
+  static const iOSWidgetKind = 'LynqoMiFiHomeWidget';
+  /// `homeWidget` query param required by the home_widget iOS plugin.
+  static const rebootDeepLink = 'lynqo://reboot?homeWidget';
 
   static Future<void> initialize() async {
     if (!Platform.isIOS) {

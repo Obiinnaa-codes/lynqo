@@ -148,7 +148,7 @@ void main() {
   );
 
   test(
-    'discoverKnownProfiles probes default_mifi when attwifimanager fails',
+    'discoverKnownProfiles reaches att_wifi via gateway IP when hostname fails',
     () async {
       final service = buildDiscoveryService(
         handler: (options) async {
@@ -158,12 +158,63 @@ void main() {
               type: DioExceptionType.connectionError,
             );
           }
-          return mockResponse(
-            statusCode: 200,
-            body: '<html><title>MiFi</title></html>',
-            headers: {
-              'content-type': ['text/html'],
-            },
+          if (options.baseUrl.contains('192.168.1.1')) {
+            return mockResponse(
+              statusCode: 200,
+              body: '<html><title>AT&T</title></html>',
+              headers: {
+                'content-type': ['text/html'],
+              },
+            );
+          }
+          throw DioException(
+            requestOptions: options,
+            type: DioExceptionType.connectionError,
+          );
+        },
+      );
+
+      final results = await service.discoverKnownProfiles();
+
+      expect(results, hasLength(1));
+      expect(results[0].profile.id, 'att_wifi');
+      expect(results[0].profile.host, '192.168.1.1');
+      expect(results[0].isSuccess, isTrue);
+    },
+  );
+
+  test(
+    'discoverKnownProfiles probes default_mifi when all att hosts fail',
+    () async {
+      var gatewayProbeCount = 0;
+      final service = buildDiscoveryService(
+        handler: (options) async {
+          final url = options.baseUrl;
+          if (url.contains('attwifimanager') || url.contains('192.168.1.1')) {
+            throw DioException(
+              requestOptions: options,
+              type: DioExceptionType.connectionError,
+            );
+          }
+          if (url.contains('192.168.0.1')) {
+            gatewayProbeCount++;
+            if (gatewayProbeCount < 2) {
+              throw DioException(
+                requestOptions: options,
+                type: DioExceptionType.connectionError,
+              );
+            }
+            return mockResponse(
+              statusCode: 200,
+              body: '<html><title>MiFi</title></html>',
+              headers: {
+                'content-type': ['text/html'],
+              },
+            );
+          }
+          throw DioException(
+            requestOptions: options,
+            type: DioExceptionType.connectionError,
           );
         },
       );
@@ -174,6 +225,7 @@ void main() {
       expect(results[0].profile.id, 'att_wifi');
       expect(results[0].isSuccess, isFalse);
       expect(results[1].profile.id, 'default_mifi');
+      expect(results[1].profile.host, '192.168.0.1');
       expect(results[1].isSuccess, isTrue);
     },
   );

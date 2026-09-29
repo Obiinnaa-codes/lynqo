@@ -13,24 +13,42 @@ const _iosSimulatorEnvironmentKeys = [
 bool shouldBlockForConnectivity(List<ConnectivityResult> results) {
   final envSimulator = isIosSimulatorEnvironment(Platform.environment);
   final devIosBypass = isIosDevConnectivityBypass();
-  final iosSimulator = isIosSimulator();
-  final blocked = shouldBlockWhenOnlyNone(results, iosSimulator: iosSimulator);
+  final skipOfflineBlock = shouldSkipOfflineConnectivityBlock();
+  final blocked = shouldBlockWhenOnlyNone(
+    results,
+    skipOfflineBlock: skipOfflineBlock,
+  );
 
   logConnectivityGateDecision(
     results: results,
     envSimulator: envSimulator,
     devIosBypass: devIosBypass,
-    iosSimulator: iosSimulator,
+    skipOfflineBlock: skipOfflineBlock,
     blocked: blocked,
   );
 
   return blocked;
 }
 
+/// Desktop + iOS simulator: [connectivity_plus] often reports [none] on local
+/// MiFi Wi‑Fi; router reachability is decided by HTTP discovery instead.
+@visibleForTesting
+bool shouldSkipOfflineConnectivityBlock() {
+  return isIosSimulator() || isDesktopPlatform();
+}
+
+@visibleForTesting
+bool isDesktopPlatform() {
+  if (kIsWeb) {
+    return false;
+  }
+  return Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+}
+
 @visibleForTesting
 bool shouldBlockWhenOnlyNone(
   List<ConnectivityResult> results, {
-  required bool iosSimulator,
+  required bool skipOfflineBlock,
 }) {
   if (results.isEmpty) {
     return false;
@@ -38,7 +56,7 @@ bool shouldBlockWhenOnlyNone(
   if (!results.every((r) => r == ConnectivityResult.none)) {
     return false;
   }
-  if (iosSimulator) {
+  if (skipOfflineBlock) {
     return false;
   }
   return true;
@@ -78,7 +96,7 @@ void logConnectivityGateDecision({
   required List<ConnectivityResult> results,
   required bool envSimulator,
   required bool devIosBypass,
-  required bool iosSimulator,
+  required bool skipOfflineBlock,
   required bool blocked,
 }) {
   if (!kDebugMode) {
@@ -88,7 +106,8 @@ void logConnectivityGateDecision({
   debugPrint(
     '[RouterConnectivity] checkConnectivity=$results '
     'envSimulator=$envSimulator devIosBypass=$devIosBypass '
-    'skipBlock=$iosSimulator blocked=$blocked',
+    'desktop=${isDesktopPlatform()} skipOfflineBlock=$skipOfflineBlock '
+    'blocked=$blocked',
   );
 
   if (!Platform.isIOS) {

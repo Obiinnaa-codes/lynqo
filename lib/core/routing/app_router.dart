@@ -7,6 +7,7 @@ import '../../features/router/presentation/providers/router_auth_gate_provider.d
 import '../../features/router/presentation/screens/router_dashboard_screen.dart';
 import '../../features/router/presentation/screens/router_connection_test_screen.dart';
 import '../../features/router/presentation/screens/router_manage_screen.dart';
+import '../../features/widget_kit/presentation/lynqo_home_widget_reboot_link.dart';
 import '../../features/widget_kit/preview/widget_kit_preview_screen.dart';
 import 'app_routes.dart';
 
@@ -17,6 +18,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     initialLocation: AppRoutes.login,
     refreshListenable: refresh,
     redirect: (context, state) {
+      final uri = state.uri;
+      if (uri.scheme == 'lynqo') {
+        if (isLynqoRebootDeepLink(uri)) {
+          ref.read(pendingHomeWidgetRebootProvider.notifier).setPending(true);
+        }
+        final gate = ref.read(routerAuthGateProvider);
+        if (gate.isAuthenticated) {
+          return AppRoutes.routerDashboard;
+        }
+        return AppRoutes.login;
+      }
+
       final gate = ref.read(routerAuthGateProvider);
       if (gate.isLoading) {
         return null;

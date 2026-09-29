@@ -9,10 +9,9 @@ import 'router_api_client.dart';
 
 class AttWifiDeviceActionsService {
   AttWifiDeviceActionsService({
-    required RouterClientFactory clientFactory,
+    required this._clientFactory,
     required RouterSecureStorage secureStorage,
-  }) : _clientFactory = clientFactory,
-       _secureStorage = secureStorage;
+  }) : _secureStorage = secureStorage;
 
   final RouterClientFactory _clientFactory;
   final RouterSecureStorage _secureStorage;

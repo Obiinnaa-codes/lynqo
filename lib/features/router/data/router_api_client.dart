@@ -81,8 +81,7 @@ class RouterApiClient {
       AttWifiAuthSpec.internalApiQueryFlag:
           AttWifiAuthSpec.internalApiQueryValue,
       AttWifiAuthSpec.cacheBustQueryParameter: _cacheBustValue(),
-      if (sessionIdQuery != null)
-        AttWifiAuthSpec.sessionIdQueryParameter: sessionIdQuery,
+      AttWifiAuthSpec.sessionIdQueryParameter: ?sessionIdQuery,
     };
   }
 

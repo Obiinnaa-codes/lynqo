@@ -3,12 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
-import '../../data/att_wifi_device_actions_service.dart';
 import '../../domain/router_sms_message.dart';
 import '../../domain/router_status.dart';
 import '../../domain/router_wifi_band_snapshot.dart';
 import '../providers/router_dashboard_provider.dart';
-import '../providers/router_providers.dart';
 
 class RouterManageScreen extends ConsumerWidget {
   const RouterManageScreen({super.key});

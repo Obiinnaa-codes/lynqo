@@ -17,7 +17,6 @@ library;
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:lynqo/features/router/config/router_config.dart' as router_cfg;
 import 'package:lynqo/features/router/config/router_profile_catalog.dart';

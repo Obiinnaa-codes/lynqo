@@ -3,61 +3,88 @@ import WidgetKit
 
 private let widgetGroupId = "group.com.example.lynqo"
 private let snapshotKey = "lynqo_widget_snapshot_v1"
+// home_widget iOS only forwards URLs that include a `homeWidget` query item.
+private let rebootDeepLink = "lynqo://reboot?homeWidget"
 
-// Keep in sync with lib/features/widget_kit/theme/lynqo_widget_colors.dart (light).
-private enum LynqoPalette {
-  static let surface = Color(red: 1, green: 1, blue: 1)
-  static let scaffold = Color(red: 0.96, green: 0.96, blue: 0.97)
-  static let primaryText = Color(red: 0.11, green: 0.11, blue: 0.12)
-  static let secondaryText = Color(red: 0.43, green: 0.43, blue: 0.45)
-  static let accentGreen = Color(red: 0.20, green: 0.78, blue: 0.35)
-  static let accentYellow = Color(red: 1, green: 0.84, blue: 0.04)
+// Sync with lib/features/widget_kit/theme/lynqo_widget_colors.dart + lynqo_widget_dimensions.dart
+struct LynqoTokens {
+  let surface: Color
+  let primaryText: Color
+  let secondaryText: Color
+  let accentRing: Color
+  let accentHighlight: Color
+  let chartTrack: Color
+  let orbStroke: Color
+
+  static func resolve(_ colorScheme: ColorScheme) -> LynqoTokens {
+    if colorScheme == .dark {
+      return LynqoTokens(
+        surface: Color(red: 0.35, green: 0.40, blue: 0.40),
+        primaryText: .white,
+        secondaryText: Color.white.opacity(0.7),
+        accentRing: Color(red: 1, green: 0.84, blue: 0.04),
+        accentHighlight: Color(red: 1, green: 0.84, blue: 0.04),
+        chartTrack: Color.white.opacity(0.3),
+        orbStroke: Color.white.opacity(0.2)
+      )
+    }
+    return LynqoTokens(
+      surface: .white,
+      primaryText: Color(red: 0.11, green: 0.11, blue: 0.12),
+      secondaryText: Color(red: 0.43, green: 0.43, blue: 0.45),
+      accentRing: Color(red: 1, green: 0.58, blue: 0),
+      accentHighlight: Color(red: 1, green: 0.8, blue: 0),
+      chartTrack: Color(red: 0.90, green: 0.90, blue: 0.92),
+      orbStroke: Color(red: 0.90, green: 0.90, blue: 0.92)
+    )
+  }
 }
 
 struct LynqoSnapshot {
   let routerName: String
   let batteryPercent: Int?
+  let batteryCharging: Bool
   let batteryStatus: String
-  let connectionHeadline: String
-  let connectionStatus: String
-  let signalPercent: Int?
-  let signalLabel: String
   let dataUsed: String
   let dataRemaining: String
-  let downloadMbps: String
-  let uploadMbps: String
+  let dataUsagePercent: Int?
   let deviceCount: Int
+  let deviceNames: [String]
   let updatedAt: String
+
+  var batteryProgress: Double {
+    guard let p = batteryPercent else { return 0 }
+    return Double(min(max(p, 0), 100)) / 100
+  }
+
+  var dataProgress: Double? {
+    guard let p = dataUsagePercent else { return nil }
+    return Double(min(max(p, 0), 100)) / 100
+  }
 
   static let empty = LynqoSnapshot(
     routerName: "Lynqo",
     batteryPercent: nil,
+    batteryCharging: false,
     batteryStatus: "",
-    connectionHeadline: "Open Lynqo to sync",
-    connectionStatus: "Sign in and open the dashboard",
-    signalPercent: nil,
-    signalLabel: "—",
     dataUsed: "—",
     dataRemaining: "",
-    downloadMbps: "—",
-    uploadMbps: "—",
+    dataUsagePercent: nil,
     deviceCount: 0,
+    deviceNames: [],
     updatedAt: ""
   )
 
   static let preview = LynqoSnapshot(
     routerName: "MiFi",
     batteryPercent: 72,
+    batteryCharging: false,
     batteryStatus: "Good",
-    connectionHeadline: "Connected",
-    connectionStatus: "Online",
-    signalPercent: 85,
-    signalLabel: "Excellent",
     dataUsed: "12.4 GB",
     dataRemaining: "37.6 GB left",
-    downloadMbps: "24 Mbps",
-    uploadMbps: "8 Mbps",
+    dataUsagePercent: 24,
     deviceCount: 3,
+    deviceNames: ["iPhone", "Mac", "iPad"],
     updatedAt: ""
   )
 
@@ -72,30 +99,20 @@ struct LynqoSnapshot {
     }
 
     let battery = root["battery"] as? [String: Any]
-    let connection = root["connection"] as? [String: Any]
-    let signal = root["signal"] as? [String: Any]
     let devices = root["devices"] as? [String: Any]
-    let networkSpeed = root["networkSpeed"] as? [String: Any]
     let dataUsage = root["dataUsage"] as? [String: Any]
-
-    let batteryPercent = intValue(battery?["percent"])
-    let signalPercent = intValue(signal?["strengthPercent"])
-    let download = stringValue(networkSpeed?["downloadMbps"]) ?? "—"
-    let upload = stringValue(networkSpeed?["uploadMbps"]) ?? "—"
+    let names = devices?["names"] as? [String] ?? []
 
     return LynqoSnapshot(
       routerName: root["routerName"] as? String ?? "MiFi",
-      batteryPercent: batteryPercent,
+      batteryPercent: intValue(battery?["percent"]),
+      batteryCharging: battery?["isCharging"] as? Bool ?? false,
       batteryStatus: battery?["statusLabel"] as? String ?? "",
-      connectionHeadline: connection?["headline"] as? String ?? "—",
-      connectionStatus: connection?["statusLabel"] as? String ?? "",
-      signalPercent: signalPercent,
-      signalLabel: signal?["qualityLabel"] as? String ?? "—",
       dataUsed: dataUsage?["usedSummary"] as? String ?? "—",
       dataRemaining: dataUsage?["remainingSummary"] as? String ?? "",
-      downloadMbps: download,
-      uploadMbps: upload,
+      dataUsagePercent: intValue(dataUsage?["usagePercent"]),
       deviceCount: devices?["count"] as? Int ?? 0,
+      deviceNames: names,
       updatedAt: root["updatedAt"] as? String ?? ""
     )
   }
@@ -103,12 +120,6 @@ struct LynqoSnapshot {
   private static func intValue(_ value: Any?) -> Int? {
     if let i = value as? Int { return i }
     if let d = value as? Double { return Int(d) }
-    return nil
-  }
-
-  private static func stringValue(_ value: Any?) -> String? {
-    if let s = value as? String { return s }
-    if let n = value as? NSNumber { return n.stringValue }
     return nil
   }
 }
@@ -138,177 +149,325 @@ struct LynqoProvider: TimelineProvider {
   }
 }
 
-struct LynqoWidgetEntryView: View {
-  @Environment(\.widgetFamily) var family
-  var entry: LynqoProvider.Entry
+// MARK: - Primitives (Flutter Widget Kit parity)
+
+struct LynqoWidgetHeader: View {
+  let tokens: LynqoTokens
+  let category: String
+  let headline: String
+  let description: String?
+  var compact: Bool = false
 
   var body: some View {
-    Group {
-      switch family {
-      case .systemMedium:
-        LynqoMediumWidgetView(snapshot: entry.snapshot)
-      default:
-        LynqoSmallWidgetView(snapshot: entry.snapshot)
-      }
-    }
-    .foregroundStyle(LynqoPalette.primaryText)
-  }
-}
-
-struct LynqoSmallWidgetView: View {
-  let snapshot: LynqoSnapshot
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack(spacing: 6) {
-        Image(systemName: "router")
-          .font(.caption)
-          .foregroundStyle(LynqoPalette.secondaryText)
-        Text(snapshot.routerName)
-          .font(.caption)
-          .foregroundStyle(LynqoPalette.secondaryText)
-          .lineLimit(1)
-      }
-      Text(snapshot.connectionHeadline)
-        .font(.title3.weight(.semibold))
+    VStack(alignment: .leading, spacing: 4) {
+      Text(category)
+        .font(.system(size: compact ? 11 : 13, weight: .medium))
+        .foregroundStyle(tokens.secondaryText)
         .lineLimit(1)
-      if !snapshot.connectionStatus.isEmpty {
-        Text(snapshot.connectionStatus)
-          .font(.caption)
-          .foregroundStyle(LynqoPalette.secondaryText)
-          .lineLimit(1)
-      }
-      Spacer(minLength: 0)
-      HStack(alignment: .bottom) {
-        if let percent = snapshot.batteryPercent {
-          BatteryRingView(percent: percent)
-        }
-        Spacer()
-        VStack(alignment: .trailing, spacing: 2) {
-          Text(snapshot.downloadMbps)
-            .font(.subheadline.weight(.semibold))
-          Text("↓ download")
-            .font(.caption2)
-            .foregroundStyle(LynqoPalette.secondaryText)
-        }
-      }
-    }
-    .padding(16)
-  }
-}
-
-struct LynqoMediumWidgetView: View {
-  let snapshot: LynqoSnapshot
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      HStack(alignment: .top) {
-        VStack(alignment: .leading, spacing: 4) {
-          Text("MiFi")
-            .font(.caption)
-            .foregroundStyle(LynqoPalette.secondaryText)
-          Text(snapshot.routerName)
-            .font(.headline)
-            .lineLimit(1)
-        }
-        Spacer()
-        if let percent = snapshot.batteryPercent {
-          HStack(spacing: 6) {
-            Text("\(percent)%")
-              .font(.caption.weight(.medium))
-            BatteryRingView(percent: percent, diameter: 28)
-          }
-        }
-      }
-      HStack(spacing: 8) {
-        MetricPill(title: "Signal", value: signalValue)
-        MetricPill(title: "Data", value: snapshot.dataUsed)
-        MetricPill(title: "Devices", value: "\(snapshot.deviceCount)")
-      }
-      HStack {
-        Label(snapshot.downloadMbps, systemImage: "arrow.down")
-          .font(.caption)
-        Spacer()
-        Label(snapshot.uploadMbps, systemImage: "arrow.up")
-          .font(.caption)
-      }
-      .foregroundStyle(LynqoPalette.secondaryText)
-    }
-    .padding(16)
-  }
-
-  private var signalValue: String {
-    if let p = snapshot.signalPercent {
-      return "\(p)%"
-    }
-    return snapshot.signalLabel
-  }
-}
-
-struct MetricPill: View {
-  let title: String
-  let value: String
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 2) {
-      Text(title)
-        .font(.caption2)
-        .foregroundStyle(LynqoPalette.secondaryText)
-      Text(value)
-        .font(.subheadline.weight(.semibold))
+      Text(headline)
+        .font(.system(size: compact ? 22 : 28, weight: .semibold))
+        .foregroundStyle(tokens.primaryText)
         .lineLimit(1)
-        .minimumScaleFactor(0.8)
+        .minimumScaleFactor(0.65)
+      if let description, !description.isEmpty {
+        Text(description)
+          .font(.system(size: 15, weight: .regular))
+          .foregroundStyle(tokens.secondaryText)
+          .lineLimit(2)
+          .minimumScaleFactor(0.8)
+      }
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .padding(.vertical, 8)
-    .padding(.horizontal, 10)
-    .background(LynqoPalette.scaffold)
-    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
   }
 }
 
-struct BatteryRingView: View {
-  let percent: Int
-  var diameter: CGFloat = 40
+struct LynqoWidgetRing: View {
+  let tokens: LynqoTokens
+  let progress: Double
+  let diameter: CGFloat
+  let systemIcon: String
 
   var body: some View {
     ZStack {
       Circle()
-        .stroke(LynqoPalette.scaffold, lineWidth: 4)
+        .stroke(tokens.chartTrack, lineWidth: 5)
       Circle()
-        .trim(from: 0, to: CGFloat(min(max(percent, 0), 100)) / 100)
+        .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
         .stroke(
-          percent > 20 ? LynqoPalette.accentGreen : LynqoPalette.accentYellow,
-          style: StrokeStyle(lineWidth: 4, lineCap: .round)
+          tokens.accentRing,
+          style: StrokeStyle(lineWidth: 5, lineCap: .round)
         )
         .rotationEffect(.degrees(-90))
-      Text("\(percent)")
-        .font(.system(size: diameter * 0.28, weight: .semibold, design: .rounded))
+      Image(systemName: systemIcon)
+        .font(.system(size: diameter * 0.38, weight: .medium))
+        .foregroundStyle(tokens.secondaryText)
     }
     .frame(width: diameter, height: diameter)
   }
 }
 
+struct LynqoWidgetProgressBar: View {
+  let tokens: LynqoTokens
+  let progress: Double
+
+  var body: some View {
+    GeometryReader { geo in
+      ZStack(alignment: .leading) {
+        Capsule()
+          .fill(tokens.chartTrack)
+        Capsule()
+          .fill(tokens.accentHighlight)
+          .frame(width: geo.size.width * CGFloat(min(max(progress, 0), 1)))
+      }
+    }
+    .frame(height: 6)
+  }
+}
+
+struct LynqoDeviceOrb: View {
+  let tokens: LynqoTokens
+  let label: String?
+
+  var body: some View {
+    Circle()
+      .strokeBorder(tokens.orbStroke, lineWidth: 1)
+      .background(Circle().fill(tokens.surface.opacity(0.5)))
+      .frame(width: 28, height: 28)
+      .overlay {
+        if let label, let initial = label.first {
+          Text(String(initial).uppercased())
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(tokens.secondaryText)
+        }
+      }
+  }
+}
+
+// MARK: - Widget layouts
+
+struct LynqoWidgetEntryView: View {
+  @Environment(\.widgetFamily) var family
+  @Environment(\.colorScheme) var colorScheme
+  var entry: LynqoProvider.Entry
+
+  var body: some View {
+    let tokens = LynqoTokens.resolve(colorScheme)
+    Group {
+      switch family {
+      case .systemMedium:
+        LynqoMediumWidgetView(snapshot: entry.snapshot, tokens: tokens)
+      default:
+        LynqoSmallWidgetView(snapshot: entry.snapshot, tokens: tokens)
+      }
+    }
+    .foregroundStyle(tokens.primaryText)
+  }
+}
+
+/// Small: [LynqoWidgetRing] + primary value below (battery_widget small).
+struct LynqoSmallWidgetView: View {
+  let snapshot: LynqoSnapshot
+  let tokens: LynqoTokens
+
+  private let ringSize: CGFloat = 56
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) {
+      if snapshot.batteryPercent != nil {
+        LynqoWidgetRing(
+          tokens: tokens,
+          progress: snapshot.batteryProgress,
+          diameter: ringSize,
+          systemIcon: snapshot.batteryCharging ? "bolt.fill" : "battery.100"
+        )
+        Spacer(minLength: 8)
+        Text(percentLabel)
+          .font(.system(size: 36, weight: .semibold))
+          .foregroundStyle(tokens.primaryText)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
+      } else {
+        LynqoWidgetHeader(
+          tokens: tokens,
+          category: "Battery",
+          headline: "—",
+          description: "Open Lynqo and open the dashboard to sync."
+        )
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .padding(16)
+  }
+
+  private var percentLabel: String {
+    guard let p = snapshot.batteryPercent else { return "—" }
+    return "\(p)%"
+  }
+}
+
+/// Medium: battery | data usage | devices + restart.
+struct LynqoMediumWidgetView: View {
+  let snapshot: LynqoSnapshot
+  let tokens: LynqoTokens
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .top, spacing: 8) {
+        batterySection
+          .frame(maxWidth: .infinity, alignment: .leading)
+        dataSection
+          .frame(maxWidth: .infinity, alignment: .leading)
+        devicesSection
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      restartControl
+    }
+    .padding(16)
+  }
+
+  private var batterySection: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      LynqoWidgetRing(
+        tokens: tokens,
+        progress: snapshot.batteryProgress,
+        diameter: 52,
+        systemIcon: snapshot.batteryCharging ? "bolt.fill" : "battery.100"
+      )
+      Text(percentLabel)
+        .font(.system(size: 28, weight: .semibold))
+        .foregroundStyle(tokens.primaryText)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+      if !snapshot.batteryStatus.isEmpty {
+        Text(snapshot.batteryStatus)
+          .font(.system(size: 13, weight: .regular))
+          .foregroundStyle(tokens.secondaryText)
+          .lineLimit(1)
+      }
+    }
+  }
+
+  private var dataSection: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      LynqoWidgetHeader(
+        tokens: tokens,
+        category: "Data usage",
+        headline: snapshot.dataUsed,
+        description: dataDescription,
+        compact: true
+      )
+      if let progress = snapshot.dataProgress {
+        LynqoWidgetProgressBar(tokens: tokens, progress: progress)
+      }
+    }
+  }
+
+  private var devicesSection: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      LynqoWidgetHeader(
+        tokens: tokens,
+        category: "Connected devices",
+        headline: "\(snapshot.deviceCount)",
+        description: "devices connected",
+        compact: true
+      )
+      if colorSchemeIsDark {
+        HStack(spacing: 6) {
+          ForEach(0..<3, id: \.self) { index in
+            LynqoDeviceOrb(
+              tokens: tokens,
+              label: index < snapshot.deviceNames.count ? snapshot.deviceNames[index] : nil
+            )
+          }
+        }
+      }
+    }
+  }
+
+  @Environment(\.colorScheme) private var colorScheme
+  private var colorSchemeIsDark: Bool { colorScheme == .dark }
+
+  private var dataDescription: String? {
+    if !snapshot.dataRemaining.isEmpty {
+      return snapshot.dataRemaining
+    }
+    return nil
+  }
+
+  private var percentLabel: String {
+    guard let p = snapshot.batteryPercent else { return "—" }
+    return "\(p)%"
+  }
+
+  @ViewBuilder
+  private var restartControl: some View {
+    if #available(iOSApplicationExtension 17.0, *) {
+      Link(destination: URL(string: rebootDeepLink)!) {
+        HStack(spacing: 6) {
+          Image(systemName: "arrow.clockwise")
+            .font(.system(size: 14, weight: .semibold))
+          Text("Restart MiFi")
+            .font(.system(size: 15, weight: .semibold))
+        }
+        .foregroundStyle(tokens.accentRing)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+      }
+      .buttonStyle(.plain)
+    } else {
+      Text("Restart: open Lynqo")
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(tokens.secondaryText)
+        .frame(maxWidth: .infinity)
+    }
+  }
+}
+
+struct LynqoWidgetRootView: View {
+  @Environment(\.colorScheme) private var colorScheme
+  let entry: LynqoProvider.Entry
+
+  var body: some View {
+    LynqoWidgetEntryView(entry: entry)
+  }
+}
+
+// WidgetKit caches aggressively; bump [kind] when layouts change so the gallery picks up new binaries.
 @main
 struct LynqoWidget: Widget {
-  let kind: String = "LynqoWidget"
+  let kind: String = "LynqoMiFiHomeWidget"
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: LynqoProvider()) { entry in
       if #available(iOSApplicationExtension 17.0, *) {
-        LynqoWidgetEntryView(entry: entry)
+        LynqoWidgetRootView(entry: entry)
           .containerBackground(for: .widget) {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-              .fill(LynqoPalette.surface)
+            LynqoWidgetBackground()
           }
       } else {
-        LynqoWidgetEntryView(entry: entry)
+        LynqoWidgetRootView(entry: entry)
           .padding()
-          .background(LynqoPalette.surface)
+          .background(LynqoWidgetBackgroundLegacy())
       }
     }
-    .configurationDisplayName("MiFi status")
-    .description("Router overview styled like the Lynqo dashboard.")
+    .configurationDisplayName("MiFi")
+    .description("Small: battery %. Medium: battery, data, devices, restart.")
     .supportedFamilies([.systemSmall, .systemMedium])
+  }
+}
+
+private struct LynqoWidgetBackground: View {
+  @Environment(\.colorScheme) private var colorScheme
+
+  var body: some View {
+    ContainerRelativeShape()
+      .fill(LynqoTokens.resolve(colorScheme).surface)
+  }
+}
+
+private struct LynqoWidgetBackgroundLegacy: View {
+  @Environment(\.colorScheme) private var colorScheme
+
+  var body: some View {
+    LynqoTokens.resolve(colorScheme).surface
   }
 }

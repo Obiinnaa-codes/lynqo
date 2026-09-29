@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../config/router_config.dart';
 import '../../config/router_profile_catalog.dart';
 import '../../domain/router_diagnostics.dart';
@@ -38,28 +40,54 @@ class RouterDiscoveryService {
         _clientFactory ?? RouterClientFactory(transportConfig: _config);
     final results = <RouterDiscoveryResult>[];
 
-    final attBundle = factory.createForProfile(RouterProfileCatalog.attWifi);
-    final attResult = await attBundle.discoveryService.discoverProfile(
-      RouterProfileCatalog.attWifi,
+    final attResult = await _discoverWithHostFallbacks(
+      factory: factory,
+      template: RouterProfileCatalog.attWifi,
+      hosts: [
+        AttWifiAuthSpec.captiveHostname,
+        ...AttWifiAuthSpec.discoveryGatewayHosts,
+      ],
     );
     results.add(attResult);
 
-    // att_wifi uses http://attwifimanager/ only; do not probe 192.168.0.1 once
-    // the captive-DNS host is reachable (default_mifi profile unchanged).
     if (attResult.isSuccess) {
       return results;
     }
 
-    final mifiBundle = factory.createForProfile(
-      RouterProfileCatalog.defaultMifi,
-    );
     results.add(
-      await mifiBundle.discoveryService.discoverProfile(
-        RouterProfileCatalog.defaultMifi,
+      await _discoverWithHostFallbacks(
+        factory: factory,
+        template: RouterProfileCatalog.defaultMifi,
+        hosts: RouterProfileCatalog.defaultMifiDiscoveryHosts,
       ),
     );
 
     return results;
+  }
+
+  Future<RouterDiscoveryResult> _discoverWithHostFallbacks({
+    required RouterClientFactory factory,
+    required RouterProfile template,
+    required List<String> hosts,
+  }) async {
+    RouterDiscoveryResult? last;
+    for (final host in hosts) {
+      final profile = template.withHost(host);
+      final bundle = factory.createForProfile(profile);
+      final result = await bundle.discoveryService.discoverProfile(profile);
+      last = result;
+      if (kDebugMode) {
+        debugPrint(
+          '[RouterConnect] discovery probe profile=${template.id} '
+          'host=$host success=${result.isSuccess} '
+          'failure=${result.failure?.runtimeType}',
+        );
+      }
+      if (result.isSuccess) {
+        return result;
+      }
+    }
+    return last!;
   }
 
   static RouterDiscoveryResult? selectReachableProfile(

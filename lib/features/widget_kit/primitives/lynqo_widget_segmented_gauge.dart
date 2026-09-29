@@ -37,7 +37,7 @@ class LynqoWidgetSegmentedGauge extends StatelessWidget {
               segmentCount: segmentCount,
             ),
           ),
-          if (center != null) center!,
+          ?center,
         ],
       ),
     );

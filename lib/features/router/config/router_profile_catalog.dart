@@ -18,6 +18,9 @@ abstract final class RouterProfileCatalog {
     host: 'attwifimanager',
   );
 
+  /// Common MiFi gateways when the default host does not answer.
+  static const defaultMifiDiscoveryHosts = ['192.168.0.1', '192.168.1.1'];
+
   static const List<RouterProfile> all = [defaultMifi, attWifi];
 
   static RouterProfile? byId(String id) {

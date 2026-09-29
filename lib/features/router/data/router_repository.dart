@@ -57,9 +57,17 @@ class RouterRepository {
     );
 
     if (kDebugMode) {
+      for (final attempt in discoveryAttempts) {
+        debugPrint(
+          '[RouterConnect] discovery attempt profile=${attempt.profile.id} '
+          'host=${attempt.profile.host} reachable=${attempt.isSuccess} '
+          'failure=${attempt.failure?.runtimeType}',
+        );
+      }
       debugPrint(
         '[RouterConnect] discovery end '
         'selectedProfile=${selected?.profile.id ?? 'none'} '
+        'host=${selected?.profile.host ?? 'none'} '
         'attempts=${discoveryAttempts.length}',
       );
     }

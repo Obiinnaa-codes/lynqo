@@ -4,7 +4,10 @@ import 'package:lynqo/features/router/data/network/router_connectivity_gate.dart
 
 void main() {
   test('empty connectivity results do not block discovery', () {
-    expect(shouldBlockWhenOnlyNone(const [], iosSimulator: false), isFalse);
+    expect(
+      shouldBlockWhenOnlyNone(const [], skipOfflineBlock: false),
+      isFalse,
+    );
   });
 
   test('wifi connectivity does not block discovery', () {
@@ -14,22 +17,32 @@ void main() {
     );
   });
 
-  test('only none blocks when not on iOS simulator', () {
+  test('only none blocks on phone-like paths', () {
     expect(
       shouldBlockWhenOnlyNone(const [
         ConnectivityResult.none,
-      ], iosSimulator: false),
+      ], skipOfflineBlock: false),
       isTrue,
     );
   });
 
-  test('only none does not block on iOS simulator', () {
+  test('only none does not block when offline skip applies', () {
     expect(
       shouldBlockWhenOnlyNone(const [
         ConnectivityResult.none,
-      ], iosSimulator: true),
+      ], skipOfflineBlock: true),
       isFalse,
     );
+  });
+
+  test('desktop platforms skip offline connectivity block', () {
+    if (isDesktopPlatform()) {
+      expect(shouldSkipOfflineConnectivityBlock(), isTrue);
+      expect(
+        shouldBlockForConnectivity(const [ConnectivityResult.none]),
+        isFalse,
+      );
+    }
   });
 
   test('detects simulator via SIMULATOR_DEVICE_NAME', () {

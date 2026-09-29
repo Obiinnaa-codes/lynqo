@@ -3,6 +3,12 @@
 abstract final class AttWifiAuthSpec {
   static const profileId = 'att_wifi';
 
+  /// Captive hostname (phones). Desktop OS often cannot resolve it; probe [discoveryGatewayHosts].
+  static const captiveHostname = 'attwifimanager';
+
+  /// Gateway IPs used when [captiveHostname] does not resolve (common on macOS).
+  static const discoveryGatewayHosts = ['192.168.1.1', '192.168.0.1'];
+
   /// SPA shell shown before and after login attempts.
   static const loginPagePath = '/index.html';
 

@@ -5,13 +5,12 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacing.dart';
 import '../../../../core/routing/app_routes.dart';
-import 'router_manage_screen.dart';
 import '../../../widget_kit/data/router_widget_mappers.dart';
 import '../../../widget_kit/data/lynqo_home_widget.dart';
 import '../../../widget_kit/presentation/lynqo_dashboard_view.dart';
+import '../../../widget_kit/presentation/lynqo_home_widget_reboot_link.dart';
 import '../../../widget_kit/presentation/lynqo_home_widget_sync_provider.dart';
 import '../../../widget_kit/presentation/router_throughput_provider.dart';
-import '../../data/att_wifi_device_actions_service.dart';
 import '../providers/router_auth_gate_provider.dart';
 import '../providers/router_dashboard_provider.dart';
 import '../providers/router_providers.dart';
@@ -118,11 +117,37 @@ Future<void> _logout(BuildContext context, WidgetRef ref) async {
   }
 }
 
-class RouterDashboardScreen extends ConsumerWidget {
+class RouterDashboardScreen extends ConsumerStatefulWidget {
   const RouterDashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RouterDashboardScreen> createState() =>
+      _RouterDashboardScreenState();
+}
+
+class _RouterDashboardScreenState extends ConsumerState<RouterDashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeRebootFromWidget());
+  }
+
+  void _maybeRebootFromWidget() {
+    final pending = ref.read(pendingHomeWidgetRebootProvider);
+    if (!pending || !mounted) {
+      return;
+    }
+    ref.read(pendingHomeWidgetRebootProvider.notifier).setPending(false);
+    _confirmAndRebootMiFi(context, ref);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(pendingHomeWidgetRebootProvider, (previous, next) {
+      if (next) {
+        _maybeRebootFromWidget();
+      }
+    });
     ref.watch(lynqoHomeWidgetSyncProvider);
     final statusAsync = ref.watch(routerDashboardProvider);
     final routerHost = ref.watch(routerConfigProvider).host;

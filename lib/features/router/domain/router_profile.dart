@@ -26,6 +26,19 @@ class RouterProfile {
     return '$scheme://$authority/';
   }
 
+  RouterProfile withHost(String newHost) {
+    return RouterProfile(
+      id: id,
+      displayName: displayName,
+      scheme: scheme,
+      host: newHost,
+      port: port,
+      manufacturer: manufacturer,
+      model: model,
+      authenticationType: authenticationType,
+    );
+  }
+
   RouterProfile copyWith({
     String? manufacturer,
     String? model,

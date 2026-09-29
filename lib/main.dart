@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'features/widget_kit/data/lynqo_home_widget.dart';
+import 'features/widget_kit/presentation/lynqo_home_widget_deep_link.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,11 +37,13 @@ class _LynqoAppState extends State<LynqoApp> {
       return const SizedBox.shrink();
     }
 
-    return MaterialApp.router(
-      title: 'MiFi',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      routerConfig: router,
+    return LynqoHomeWidgetLinkListener(
+      child: MaterialApp.router(
+        title: 'MiFi',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        routerConfig: router,
+      ),
     );
   }
 }
