@@ -95,6 +95,9 @@ abstract final class AttWifiModelParser {
         _intFromPaths(decoded, _smsUnreadPaths) ??
         smsMessages.where((m) => !m.read).length;
 
+    final sessionRxBytes = _intFromPaths(decoded, _sessionRxBytesPaths);
+    final sessionTxBytes = _intFromPaths(decoded, _sessionTxBytesPaths);
+
     return RouterStatus(
       batteryPercent: batteryPercent,
       isCharging: isCharging,
@@ -124,6 +127,8 @@ abstract final class AttWifiModelParser {
       wifiProfile: wifiProfile,
       wifiBandLabel: wifiBandLabel,
       wifiBandSnapshots: wifiBandSnapshots,
+      sessionRxBytes: sessionRxBytes,
+      sessionTxBytes: sessionTxBytes,
       connectedDeviceCount: connectedDeviceCount,
       wifiConnectedClients: wifiConnectedClients,
       smsMessages: smsMessages,
@@ -593,6 +598,16 @@ abstract final class AttWifiModelParser {
 
   static const _roamingPaths = [
     ['wwan', 'roaming'],
+  ];
+
+  static const _sessionRxBytesPaths = [
+    ['wwan', 'dataTransferred', 'rx'],
+    ['wwan', 'dataTransferredRx'],
+  ];
+
+  static const _sessionTxBytesPaths = [
+    ['wwan', 'dataTransferred', 'tx'],
+    ['wwan', 'dataTransferredTx'],
   ];
 
   static const _dataLimitPaths = [

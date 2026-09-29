@@ -5,6 +5,7 @@ import 'package:lynqo/features/router/presentation/providers/router_providers.da
 import 'package:lynqo/main.dart';
 
 import '../router/mocks/fake_router_repository.dart';
+import '../../support/login_test_helpers.dart';
 
 Finder get usernameFieldFinder => find.byType(TextField).first;
 
@@ -157,8 +158,7 @@ void main() {
       await tester.enterText(usernameFieldFinder, 'admin');
       await tester.pump();
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
-      await tester.pumpAndSettle();
+      await tapConnectButton(tester);
 
       expect(find.text('Password is required'), findsOneWidget);
       expect(usernameField(tester).controller!.text, 'admin');

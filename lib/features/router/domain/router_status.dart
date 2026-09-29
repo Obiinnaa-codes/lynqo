@@ -32,6 +32,8 @@ class RouterStatus {
     this.wifiProfile,
     this.wifiBandLabel,
     this.wifiBandSnapshots = const [],
+    this.sessionRxBytes,
+    this.sessionTxBytes,
     this.uploadSpeedBps,
     this.downloadSpeedBps,
     this.connectedDeviceCount,
@@ -68,6 +70,9 @@ class RouterStatus {
   final String? wifiProfile;
   final String? wifiBandLabel;
   final List<RouterWifiBandSnapshot> wifiBandSnapshots;
+  /// Cumulative session counters from `wwan.dataTransferred.rx` / `.tx` (not instantaneous speed).
+  final int? sessionRxBytes;
+  final int? sessionTxBytes;
   final int? uploadSpeedBps;
   final int? downloadSpeedBps;
   final int? connectedDeviceCount;

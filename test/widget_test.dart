@@ -5,6 +5,7 @@ import 'package:lynqo/features/router/presentation/providers/router_providers.da
 import 'package:lynqo/main.dart';
 
 import 'features/router/mocks/fake_router_repository.dart';
+import 'support/login_test_helpers.dart';
 
 void main() {
   testWidgets('Login screen shows validation when Connect is tapped empty', (
@@ -22,8 +23,7 @@ void main() {
 
     expect(find.text('Connect to your MiFi'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Connect'));
-    await tester.pumpAndSettle();
+    await tapConnectButton(tester);
 
     expect(find.text('Username is required'), findsOneWidget);
     expect(find.text('Password is required'), findsOneWidget);
