@@ -1,0 +1,82 @@
+import 'package:flutter/material.dart' show IconData, Icons;
+
+import '../domain/lynqo_router_widget_snapshot.dart';
+import '../domain/models/widget_view_models.dart';
+
+/// View-model helpers for the medium home widget (no fake metrics).
+abstract final class LynqoMediumMiFiPresentation {
+  /// Epoch [updatedAt] means the home widget has not received a sync yet.
+  static bool isSynced(LynqoRouterWidgetSnapshot snapshot) {
+    return snapshot.updatedAt.millisecondsSinceEpoch != 0;
+  }
+
+  static String batteryPrimary(LynqoRouterWidgetSnapshot snapshot) {
+    if (!isSynced(snapshot)) {
+      return '—';
+    }
+    final percent = snapshot.battery.percent;
+    if (percent == null) {
+      return '—';
+    }
+    return '$percent%';
+  }
+
+  static double? batteryProgress(LynqoRouterWidgetSnapshot snapshot) {
+    if (!isSynced(snapshot)) {
+      return null;
+    }
+    return snapshot.battery.progress;
+  }
+
+  static String dataPrimary(LynqoRouterWidgetSnapshot snapshot) {
+    if (!isSynced(snapshot)) {
+      return '—';
+    }
+    return snapshot.dataUsage.usedSummary ?? '—';
+  }
+
+  static String dataSecondary(LynqoRouterWidgetSnapshot snapshot) {
+    final limit = snapshot.dataUsage.limitSummary;
+    if (limit != null && limit.isNotEmpty) {
+      return 'of $limit';
+    }
+    final remaining = snapshot.dataUsage.remainingSummary;
+    if (remaining != null && remaining.isNotEmpty) {
+      return remaining;
+    }
+    return 'Data';
+  }
+
+  static double? dataProgress(LynqoRouterWidgetSnapshot snapshot) {
+    if (!isSynced(snapshot)) {
+      return null;
+    }
+    return snapshot.dataUsage.progress;
+  }
+
+  static String devicesPrimary(LynqoRouterWidgetSnapshot snapshot) {
+    if (!isSynced(snapshot)) {
+      return '—';
+    }
+    final count = snapshot.devices.count;
+    if (count == null) {
+      return '—';
+    }
+    return '$count';
+  }
+
+  static String restartSecondary(LynqoRouterWidgetSnapshot snapshot) {
+    final name = snapshot.routerOverview.routerName;
+    if (name.isNotEmpty) {
+      return name;
+    }
+    return 'MiFi';
+  }
+
+  static IconData batteryIcon(BatteryWidgetData battery) {
+    if (battery.isCharging == true) {
+      return Icons.battery_charging_full;
+    }
+    return Icons.battery_std_outlined;
+  }
+}

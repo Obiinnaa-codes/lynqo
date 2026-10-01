@@ -10,6 +10,7 @@ class LynqoWidgetRing extends StatelessWidget {
     required this.progress,
     required this.diameter,
     this.strokeWidth = 5,
+    this.progressColor,
     this.center,
   });
 
@@ -17,6 +18,7 @@ class LynqoWidgetRing extends StatelessWidget {
   final double progress;
   final double diameter;
   final double strokeWidth;
+  final Color? progressColor;
   final Widget? center;
 
   @override
@@ -34,7 +36,7 @@ class LynqoWidgetRing extends StatelessWidget {
             size: Size(diameter, diameter),
             painter: _RingPainter(
               progress: clamped,
-              color: theme.accentRing,
+              color: progressColor ?? theme.accentRing,
               trackColor: theme.isDark
                   ? theme.chartBarInactive
                   : theme.chartBarInactive,

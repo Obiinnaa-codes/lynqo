@@ -68,4 +68,56 @@ abstract final class LynqoWidgetMockData {
     networkSpeed: networkSpeed,
     routerOverview: routerOverview,
   );
+
+  /// Visual target for iOS systemMedium home widget preview.
+  static LynqoRouterWidgetSnapshot mediumHomeSnapshot = LynqoRouterWidgetSnapshot(
+    updatedAt: DateTime.utc(2026, 9, 28, 12),
+    battery: const BatteryWidgetData(percent: 94),
+    dataUsage: const DataUsageWidgetData(
+      usedSummary: '12.4 GB',
+      limitSummary: '50 GB',
+      usagePercent: 25,
+    ),
+    signal: signal,
+    connection: connection,
+    devices: const ConnectedDevicesWidgetData(count: 3),
+    networkSpeed: networkSpeed,
+    routerOverview: const RouterOverviewWidgetData(
+      routerName: 'MiFi',
+      battery: BatteryWidgetData(percent: 94),
+      dataUsage: DataUsageWidgetData(
+        usedSummary: '12.4 GB',
+        limitSummary: '50 GB',
+        usagePercent: 25,
+      ),
+      devices: ConnectedDevicesWidgetData(count: 3),
+    ),
+  );
+
+  static LynqoRouterWidgetSnapshot unsyncedHomeSnapshot = LynqoRouterWidgetSnapshot(
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+    battery: const BatteryWidgetData(),
+    dataUsage: const DataUsageWidgetData(),
+    signal: signal,
+    connection: connection,
+    devices: const ConnectedDevicesWidgetData(),
+    networkSpeed: networkSpeed,
+    routerOverview: const RouterOverviewWidgetData(routerName: 'MiFi'),
+  );
+
+  static LynqoRouterWidgetSnapshot partialDataHomeSnapshot = LynqoRouterWidgetSnapshot(
+    updatedAt: DateTime.utc(2026, 9, 28, 12),
+    battery: const BatteryWidgetData(percent: 72),
+    dataUsage: const DataUsageWidgetData(usedSummary: '8.1 GB'),
+    signal: signal,
+    connection: connection,
+    devices: const ConnectedDevicesWidgetData(count: 2),
+    networkSpeed: networkSpeed,
+    routerOverview: const RouterOverviewWidgetData(
+      routerName: 'MiFi',
+      battery: BatteryWidgetData(percent: 72),
+      dataUsage: DataUsageWidgetData(usedSummary: '8.1 GB'),
+      devices: ConnectedDevicesWidgetData(count: 2),
+    ),
+  );
 }

@@ -47,19 +47,51 @@ struct LynqoSnapshot {
   let batteryStatus: String
   let dataUsed: String
   let dataRemaining: String
+  let dataLimitSummary: String
   let dataUsagePercent: Int?
-  let deviceCount: Int
+  let deviceCount: Int?
   let deviceNames: [String]
   let updatedAt: String
 
+  var isSynced: Bool { !updatedAt.isEmpty }
+
   var batteryProgress: Double {
-    guard let p = batteryPercent else { return 0 }
+    guard isSynced, let p = batteryPercent else { return 0 }
     return Double(min(max(p, 0), 100)) / 100
   }
 
-  var dataProgress: Double? {
-    guard let p = dataUsagePercent else { return nil }
+  var dataProgress: Double {
+    guard isSynced, let p = dataUsagePercent else { return 0 }
     return Double(min(max(p, 0), 100)) / 100
+  }
+
+  var batteryPrimaryLabel: String {
+    guard isSynced, let p = batteryPercent else { return "—" }
+    return "\(p)%"
+  }
+
+  var dataPrimaryLabel: String {
+    guard isSynced else { return "—" }
+    return dataUsed
+  }
+
+  var dataSecondaryLabel: String {
+    if !dataLimitSummary.isEmpty {
+      return "of \(dataLimitSummary)"
+    }
+    if !dataRemaining.isEmpty {
+      return dataRemaining
+    }
+    return "Data"
+  }
+
+  var devicesPrimaryLabel: String {
+    guard isSynced, let count = deviceCount else { return "—" }
+    return "\(count)"
+  }
+
+  var restartSecondaryLabel: String {
+    routerName.isEmpty ? "MiFi" : routerName
   }
 
   static let empty = LynqoSnapshot(
@@ -69,23 +101,25 @@ struct LynqoSnapshot {
     batteryStatus: "",
     dataUsed: "—",
     dataRemaining: "",
+    dataLimitSummary: "",
     dataUsagePercent: nil,
-    deviceCount: 0,
+    deviceCount: nil,
     deviceNames: [],
     updatedAt: ""
   )
 
   static let preview = LynqoSnapshot(
     routerName: "MiFi",
-    batteryPercent: 72,
+    batteryPercent: 94,
     batteryCharging: false,
-    batteryStatus: "Good",
+    batteryStatus: "",
     dataUsed: "12.4 GB",
-    dataRemaining: "37.6 GB left",
-    dataUsagePercent: 24,
+    dataRemaining: "",
+    dataLimitSummary: "50 GB",
+    dataUsagePercent: 25,
     deviceCount: 3,
     deviceNames: ["iPhone", "Mac", "iPad"],
-    updatedAt: ""
+    updatedAt: "preview"
   )
 
   static func load() -> LynqoSnapshot {
@@ -110,8 +144,9 @@ struct LynqoSnapshot {
       batteryStatus: battery?["statusLabel"] as? String ?? "",
       dataUsed: dataUsage?["usedSummary"] as? String ?? "—",
       dataRemaining: dataUsage?["remainingSummary"] as? String ?? "",
+      dataLimitSummary: dataUsage?["limitSummary"] as? String ?? "",
       dataUsagePercent: intValue(dataUsage?["usagePercent"]),
-      deviceCount: devices?["count"] as? Int ?? 0,
+      deviceCount: intValue(devices?["count"]),
       deviceNames: names,
       updatedAt: root["updatedAt"] as? String ?? ""
     )
@@ -180,28 +215,85 @@ struct LynqoWidgetHeader: View {
   }
 }
 
+private let ringArcFraction: CGFloat = 0.94
+
 struct LynqoWidgetRing: View {
   let tokens: LynqoTokens
   let progress: Double
   let diameter: CGFloat
   let systemIcon: String
+  var strokeWidth: CGFloat = 4
+  var accentColor: Color?
 
   var body: some View {
+    let clamped = CGFloat(min(max(progress, 0), 1))
+    let ringColor = accentColor ?? tokens.accentRing
     ZStack {
       Circle()
-        .stroke(tokens.chartTrack, lineWidth: 5)
-      Circle()
-        .trim(from: 0, to: CGFloat(min(max(progress, 0), 1)))
+        .trim(from: 0, to: ringArcFraction)
         .stroke(
-          tokens.accentRing,
-          style: StrokeStyle(lineWidth: 5, lineCap: .round)
+          tokens.chartTrack,
+          style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
         )
         .rotationEffect(.degrees(-90))
+      if clamped > 0 {
+        Circle()
+          .trim(from: 0, to: ringArcFraction * clamped)
+          .stroke(
+            ringColor,
+            style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
+          )
+          .rotationEffect(.degrees(-90))
+      }
       Image(systemName: systemIcon)
         .font(.system(size: diameter * 0.38, weight: .medium))
         .foregroundStyle(tokens.secondaryText)
     }
     .frame(width: diameter, height: diameter)
+  }
+}
+
+struct LynqoMetricColumn: View {
+  let tokens: LynqoTokens
+  let progress: Double
+  let systemIcon: String
+  let primary: String
+  let secondary: String
+  var primarySize: CGFloat = 15
+  var ringDiameter: CGFloat = 52
+
+  var body: some View {
+    VStack(spacing: 8) {
+      LynqoWidgetRing(
+        tokens: tokens,
+        progress: progress,
+        diameter: ringDiameter,
+        systemIcon: systemIcon
+      )
+      Text(primary)
+        .font(.system(size: primarySize, weight: .semibold))
+        .foregroundStyle(tokens.primaryText)
+        .lineLimit(1)
+        .minimumScaleFactor(0.65)
+      Text(secondary)
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(tokens.secondaryText)
+        .lineLimit(2)
+        .minimumScaleFactor(0.8)
+        .multilineTextAlignment(.center)
+    }
+    .frame(maxWidth: .infinity)
+  }
+}
+
+struct LynqoVerticalDivider: View {
+  let tokens: LynqoTokens
+  var height: CGFloat = 72
+
+  var body: some View {
+    Rectangle()
+      .fill(tokens.chartTrack.opacity(0.9))
+      .frame(width: 1, height: height)
   }
 }
 
@@ -304,120 +396,72 @@ struct LynqoSmallWidgetView: View {
   }
 }
 
-/// Medium: battery | data usage | devices + restart.
+/// Medium: four equal ring columns — battery, data, devices, restart.
 struct LynqoMediumWidgetView: View {
   let snapshot: LynqoSnapshot
   let tokens: LynqoTokens
 
-  var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      HStack(alignment: .top, spacing: 8) {
-        batterySection
-          .frame(maxWidth: .infinity, alignment: .leading)
-        dataSection
-          .frame(maxWidth: .infinity, alignment: .leading)
-        devicesSection
-          .frame(maxWidth: .infinity, alignment: .leading)
-      }
-      restartControl
-    }
-    .padding(16)
-  }
+  private let ringSize: CGFloat = 52
 
-  private var batterySection: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      LynqoWidgetRing(
+  var body: some View {
+    HStack(alignment: .center, spacing: 0) {
+      LynqoMetricColumn(
         tokens: tokens,
         progress: snapshot.batteryProgress,
-        diameter: 52,
-        systemIcon: snapshot.batteryCharging ? "bolt.fill" : "battery.100"
+        systemIcon: snapshot.batteryCharging ? "bolt.fill" : "battery.100",
+        primary: snapshot.batteryPrimaryLabel,
+        secondary: "Battery",
+        ringDiameter: ringSize
       )
-      Text(percentLabel)
-        .font(.system(size: 28, weight: .semibold))
-        .foregroundStyle(tokens.primaryText)
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
-      if !snapshot.batteryStatus.isEmpty {
-        Text(snapshot.batteryStatus)
-          .font(.system(size: 13, weight: .regular))
-          .foregroundStyle(tokens.secondaryText)
-          .lineLimit(1)
-      }
-    }
-  }
-
-  private var dataSection: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      LynqoWidgetHeader(
+      LynqoVerticalDivider(tokens: tokens)
+      LynqoMetricColumn(
         tokens: tokens,
-        category: "Data usage",
-        headline: snapshot.dataUsed,
-        description: dataDescription,
-        compact: true
+        progress: snapshot.dataProgress,
+        systemIcon: "arrow.up.arrow.down",
+        primary: snapshot.dataPrimaryLabel,
+        secondary: snapshot.dataSecondaryLabel,
+        primarySize: 14,
+        ringDiameter: ringSize
       )
-      if let progress = snapshot.dataProgress {
-        LynqoWidgetProgressBar(tokens: tokens, progress: progress)
-      }
-    }
-  }
-
-  private var devicesSection: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      LynqoWidgetHeader(
+      LynqoVerticalDivider(tokens: tokens)
+      LynqoMetricColumn(
         tokens: tokens,
-        category: "Connected devices",
-        headline: "\(snapshot.deviceCount)",
-        description: "devices connected",
-        compact: true
+        progress: 0,
+        systemIcon: "laptopcomputer.and.iphone",
+        primary: snapshot.devicesPrimaryLabel,
+        secondary: "Devices",
+        ringDiameter: ringSize
       )
-      if colorSchemeIsDark {
-        HStack(spacing: 6) {
-          ForEach(0..<3, id: \.self) { index in
-            LynqoDeviceOrb(
-              tokens: tokens,
-              label: index < snapshot.deviceNames.count ? snapshot.deviceNames[index] : nil
-            )
-          }
-        }
-      }
+      LynqoVerticalDivider(tokens: tokens)
+      restartColumn
     }
-  }
-
-  @Environment(\.colorScheme) private var colorScheme
-  private var colorSchemeIsDark: Bool { colorScheme == .dark }
-
-  private var dataDescription: String? {
-    if !snapshot.dataRemaining.isEmpty {
-      return snapshot.dataRemaining
-    }
-    return nil
-  }
-
-  private var percentLabel: String {
-    guard let p = snapshot.batteryPercent else { return "—" }
-    return "\(p)%"
+    .padding(.horizontal, 12)
+    .padding(.vertical, 14)
   }
 
   @ViewBuilder
-  private var restartControl: some View {
+  private var restartColumn: some View {
     if #available(iOSApplicationExtension 17.0, *) {
       Link(destination: URL(string: rebootDeepLink)!) {
-        HStack(spacing: 6) {
-          Image(systemName: "arrow.clockwise")
-            .font(.system(size: 14, weight: .semibold))
-          Text("Restart MiFi")
-            .font(.system(size: 15, weight: .semibold))
-        }
-        .foregroundStyle(tokens.accentRing)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        LynqoMetricColumn(
+          tokens: tokens,
+          progress: 0,
+          systemIcon: "power",
+          primary: "Restart",
+          secondary: snapshot.restartSecondaryLabel,
+          ringDiameter: ringSize
+        )
       }
       .buttonStyle(.plain)
     } else {
-      Text("Restart: open Lynqo")
-        .font(.system(size: 12, weight: .medium))
-        .foregroundStyle(tokens.secondaryText)
-        .frame(maxWidth: .infinity)
+      LynqoMetricColumn(
+        tokens: tokens,
+        progress: 0,
+        systemIcon: "power",
+        primary: "Restart",
+        secondary: "Open Lynqo",
+        ringDiameter: ringSize
+      )
     }
   }
 }
@@ -434,7 +478,7 @@ struct LynqoWidgetRootView: View {
 // WidgetKit caches aggressively; bump [kind] when layouts change so the gallery picks up new binaries.
 @main
 struct LynqoWidget: Widget {
-  let kind: String = "LynqoMiFiHomeWidget"
+  let kind: String = "LynqoMiFiHomeWidget2"
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: LynqoProvider()) { entry in
@@ -459,8 +503,17 @@ private struct LynqoWidgetBackground: View {
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
-    ContainerRelativeShape()
-      .fill(LynqoTokens.resolve(colorScheme).surface)
+    let tokens = LynqoTokens.resolve(colorScheme)
+    let fill = tokens.surface.opacity(colorScheme == .dark ? 0.78 : 0.82)
+    ZStack {
+      if colorScheme == .dark {
+        Color(red: 0.24, green: 0.27, blue: 0.27)
+      } else {
+        Color(red: 0.94, green: 0.96, blue: 0.98)
+      }
+      ContainerRelativeShape()
+        .fill(fill)
+    }
   }
 }
 
@@ -468,6 +521,6 @@ private struct LynqoWidgetBackgroundLegacy: View {
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
-    LynqoTokens.resolve(colorScheme).surface
+    LynqoWidgetBackground()
   }
 }

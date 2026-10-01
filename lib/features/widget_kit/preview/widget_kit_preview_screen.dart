@@ -8,6 +8,7 @@ import 'lynqo_widget_mock_data.dart';
 import '../layout/lynqo_widget_grid.dart';
 import '../sizing/lynqo_widget_size.dart';
 import '../theme/lynqo_widget_theme.dart';
+import '../widgets/lynqo_medium_mifi_widget.dart';
 
 class WidgetKitPreviewScreen extends StatefulWidget {
   const WidgetKitPreviewScreen({super.key});
@@ -49,6 +50,35 @@ class _WidgetKitPreviewScreenState extends State<WidgetKitPreviewScreen> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: AppSpacing.lg),
+              const _SectionTitle('iOS Medium (home)'),
+              const SizedBox(height: AppSpacing.sm),
+              const Text(
+                'Connected',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              LynqoMediumMiFiWidget(
+                snapshot: LynqoWidgetMockData.mediumHomeSnapshot,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'Unsynced',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              LynqoMediumMiFiWidget(
+                snapshot: LynqoWidgetMockData.unsyncedHomeSnapshot,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'Partial data (no allowance %)',
+                style: TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              LynqoMediumMiFiWidget(
+                snapshot: LynqoWidgetMockData.partialDataHomeSnapshot,
+              ),
+              const SizedBox(height: AppSpacing.xxl),
               for (final def in LynqoWidgetRegistry.all) ...[
                 if (def.type != LynqoWidgetType.routerOverview) ...[
                   _SectionTitle(def.displayName),
