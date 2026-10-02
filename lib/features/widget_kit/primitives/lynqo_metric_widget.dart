@@ -25,31 +25,34 @@ class LynqoMetricWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = LynqoWidgetTheme.of(context);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ring,
-        SizedBox(height: ringSpacing),
-        Text(
-          primaryValue,
-          style: theme.primaryValueStyle(LynqoWidgetSize.medium).copyWith(
-            fontSize: primaryFontSize,
-            fontWeight: FontWeight.w600,
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ring,
+          SizedBox(height: ringSpacing),
+          Text(
+            primaryValue,
+            style: theme.primaryValueStyle(LynqoWidgetSize.medium).copyWith(
+              fontSize: primaryFontSize,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
           ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-        ),
-        SizedBox(height: labelSpacing),
-        Text(
-          secondaryLabel,
-          style: theme.captionStyle(fontSize: 12),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-        ),
-      ],
+          SizedBox(height: labelSpacing),
+          Text(
+            secondaryLabel,
+            style: theme.captionStyle(fontSize: 12),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 }

@@ -12,13 +12,13 @@ class LynqoGlassContainer extends StatelessWidget {
     required this.child,
     this.width,
     this.height,
-    this.padding = 16,
-  });
+    EdgeInsetsGeometry? padding,
+  }) : padding = padding ?? const EdgeInsets.all(16);
 
   final Widget child;
   final double? width;
   final double? height;
-  final double padding;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +45,7 @@ class LynqoGlassContainer extends StatelessWidget {
         child: Container(
           width: width,
           height: height,
-          padding: EdgeInsets.all(padding),
+          padding: padding,
           decoration: BoxDecoration(
             color: fill,
             borderRadius: BorderRadius.circular(radius),

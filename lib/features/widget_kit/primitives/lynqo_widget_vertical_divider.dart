@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../sizing/lynqo_widget_dimensions.dart';
 import '../theme/lynqo_widget_theme.dart';
 
 class LynqoWidgetVerticalDivider extends StatelessWidget {
   const LynqoWidgetVerticalDivider({
     super.key,
-    this.height = 72,
+    this.height = LynqoWidgetDimensions.mediumHomeDividerHeight,
   });
 
   final double height;
@@ -13,15 +14,10 @@ class LynqoWidgetVerticalDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = LynqoWidgetTheme.of(context);
-    return SizedBox(
+    return Container(
+      width: 1,
       height: height,
-      child: Center(
-        child: Container(
-          width: 1,
-          height: height,
-          color: theme.dividerColor.withValues(alpha: theme.isDark ? 0.4 : 0.9),
-        ),
-      ),
+      color: theme.dividerColor.withValues(alpha: theme.isDark ? 0.4 : 0.9),
     );
   }
 }

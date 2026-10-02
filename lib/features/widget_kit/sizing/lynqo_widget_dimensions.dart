@@ -1,8 +1,16 @@
+import 'package:flutter/widgets.dart';
+
 import 'lynqo_widget_size.dart';
 
 /// Single source of truth for widget kit layout metrics.
 abstract final class LynqoWidgetDimensions {
   static const double surfaceRadius = 28;
+
+  /// Medium home composite — keep in sync with `LynqoMediumWidgetView` in LynqoWidget.swift.
+  static const EdgeInsets mediumHomeContentPadding =
+      EdgeInsets.fromLTRB(12, 14, 12, 14);
+  static const double mediumHomeDividerHeight = 72;
+  static const double mediumHomeMetricRingSpacing = 8;
 
   static double internalPadding(LynqoWidgetSize size) {
     switch (size) {

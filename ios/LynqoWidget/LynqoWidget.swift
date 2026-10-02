@@ -404,36 +404,40 @@ struct LynqoMediumWidgetView: View {
   private let ringSize: CGFloat = 52
 
   var body: some View {
-    HStack(alignment: .center, spacing: 0) {
-      LynqoMetricColumn(
-        tokens: tokens,
-        progress: snapshot.batteryProgress,
-        systemIcon: snapshot.batteryCharging ? "bolt.fill" : "battery.100",
-        primary: snapshot.batteryPrimaryLabel,
-        secondary: "Battery",
-        ringDiameter: ringSize
-      )
-      LynqoVerticalDivider(tokens: tokens)
-      LynqoMetricColumn(
-        tokens: tokens,
-        progress: snapshot.dataProgress,
-        systemIcon: "arrow.up.arrow.down",
-        primary: snapshot.dataPrimaryLabel,
-        secondary: snapshot.dataSecondaryLabel,
-        primarySize: 14,
-        ringDiameter: ringSize
-      )
-      LynqoVerticalDivider(tokens: tokens)
-      LynqoMetricColumn(
-        tokens: tokens,
-        progress: 0,
-        systemIcon: "laptopcomputer.and.iphone",
-        primary: snapshot.devicesPrimaryLabel,
-        secondary: "Devices",
-        ringDiameter: ringSize
-      )
-      LynqoVerticalDivider(tokens: tokens)
-      restartColumn
+    VStack(spacing: 0) {
+      Spacer(minLength: 0)
+      HStack(alignment: .top, spacing: 0) {
+        LynqoMetricColumn(
+          tokens: tokens,
+          progress: snapshot.batteryProgress,
+          systemIcon: snapshot.batteryCharging ? "bolt.fill" : "battery.100",
+          primary: snapshot.batteryPrimaryLabel,
+          secondary: "Battery",
+          ringDiameter: ringSize
+        )
+        LynqoVerticalDivider(tokens: tokens)
+        LynqoMetricColumn(
+          tokens: tokens,
+          progress: snapshot.dataProgress,
+          systemIcon: "arrow.up.arrow.down",
+          primary: snapshot.dataPrimaryLabel,
+          secondary: snapshot.dataSecondaryLabel,
+          primarySize: 14,
+          ringDiameter: ringSize
+        )
+        LynqoVerticalDivider(tokens: tokens)
+        LynqoMetricColumn(
+          tokens: tokens,
+          progress: 0,
+          systemIcon: "laptopcomputer.and.iphone",
+          primary: snapshot.devicesPrimaryLabel,
+          secondary: "Devices",
+          ringDiameter: ringSize
+        )
+        LynqoVerticalDivider(tokens: tokens)
+        restartColumn
+      }
+      Spacer(minLength: 0)
     }
     .padding(.horizontal, 12)
     .padding(.vertical, 14)
@@ -478,7 +482,7 @@ struct LynqoWidgetRootView: View {
 // WidgetKit caches aggressively; bump [kind] when layouts change so the gallery picks up new binaries.
 @main
 struct LynqoWidget: Widget {
-  let kind: String = "LynqoMiFiHomeWidget2"
+  let kind: String = "LynqoMiFiHomeWidget3"
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: LynqoProvider()) { entry in

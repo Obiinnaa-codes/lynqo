@@ -14,11 +14,13 @@ class LynqoRestartAction extends StatelessWidget {
     required this.routerLabel,
     this.onTap,
     this.isLoading = false,
+    this.ringSpacing = LynqoWidgetDimensions.mediumHomeMetricRingSpacing,
   });
 
   final String routerLabel;
   final VoidCallback? onTap;
   final bool isLoading;
+  final double ringSpacing;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +37,7 @@ class LynqoRestartAction extends StatelessWidget {
           onTap: isLoading ? null : onTap,
           borderRadius: BorderRadius.circular(12),
           child: LynqoMetricWidget(
+            ringSpacing: ringSpacing,
             ring: LynqoMetricRing(
               progress: 0,
               center: isLoading
