@@ -17,6 +17,7 @@ extension LynqoRouterWidgetSnapshotJson on LynqoRouterWidgetSnapshot {
         'remainingSummary': dataUsage.remainingSummary,
         'limitSummary': dataUsage.limitSummary,
         'usagePercent': dataUsage.usagePercent,
+        'planUnavailable': dataUsage.planUnavailable,
       },
       'signal': {
         'strengthPercent': signal.strengthPercent,

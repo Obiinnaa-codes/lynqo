@@ -7,7 +7,6 @@ import '../primitives/lynqo_metric_ring.dart';
 import '../primitives/lynqo_metric_widget.dart';
 import '../primitives/lynqo_restart_action.dart';
 import '../primitives/lynqo_widget_icon.dart';
-import '../primitives/lynqo_widget_vertical_divider.dart';
 import '../sizing/lynqo_widget_dimensions.dart';
 import '../sizing/lynqo_widget_size.dart';
 
@@ -57,15 +56,14 @@ class LynqoMediumMiFiWidget extends StatelessWidget {
                     center: LynqoWidgetIcon(
                       icon: LynqoMediumMiFiPresentation.batteryIcon(battery),
                       size: iconSize,
+                      muted: true,
                     ),
                   ),
                   primaryValue:
                       LynqoMediumMiFiPresentation.batteryPrimary(snapshot),
                   secondaryLabel: 'Battery',
-                  primaryFontSize: 15,
                 ),
               ),
-              const LynqoWidgetVerticalDivider(),
               _metricColumn(
                 LynqoMetricWidget(
                   ringSpacing: ringSpacing,
@@ -74,33 +72,33 @@ class LynqoMediumMiFiWidget extends StatelessWidget {
                     center: LynqoWidgetIcon(
                       icon: Icons.swap_vert,
                       size: iconSize,
+                      muted: true,
                     ),
                   ),
                   primaryValue:
                       LynqoMediumMiFiPresentation.dataPrimary(snapshot),
                   secondaryLabel:
                       LynqoMediumMiFiPresentation.dataSecondary(snapshot),
-                  primaryFontSize: 14,
                 ),
               ),
-              const LynqoWidgetVerticalDivider(),
               _metricColumn(
                 LynqoMetricWidget(
                   ringSpacing: ringSpacing,
                   ring: LynqoMetricRing(
-                    progress: 0,
+                    progress:
+                        LynqoWidgetDimensions.mediumHomeDecorativeRingProgress,
+                    fullCircle: true,
                     center: LynqoWidgetIcon(
                       icon: Icons.devices_outlined,
                       size: iconSize,
+                      muted: true,
                     ),
                   ),
                   primaryValue:
                       LynqoMediumMiFiPresentation.devicesPrimary(snapshot),
                   secondaryLabel: 'Devices',
-                  primaryFontSize: 15,
                 ),
               ),
-              const LynqoWidgetVerticalDivider(),
               _metricColumn(
                 LynqoRestartAction(
                   routerLabel:
@@ -118,11 +116,6 @@ class LynqoMediumMiFiWidget extends StatelessWidget {
   }
 
   static Widget _metricColumn(Widget child) {
-    return Expanded(
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: child,
-      ),
-    );
+    return Expanded(child: child);
   }
 }

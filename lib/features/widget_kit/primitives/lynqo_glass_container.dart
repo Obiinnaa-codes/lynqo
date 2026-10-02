@@ -28,7 +28,7 @@ class LynqoGlassContainer extends StatelessWidget {
       alpha: theme.isDark ? 0.78 : 0.82,
     );
     final borderColor = theme.dividerColor.withValues(
-      alpha: theme.isDark ? 0.35 : 0.55,
+      alpha: theme.isDark ? 0.28 : 0.4,
     );
 
     return Container(
@@ -37,11 +37,11 @@ class LynqoGlassContainer extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(radius),
         boxShadow: theme.surfaceShadow,
-        border: Border.all(color: borderColor, width: 1),
+        border: Border.all(color: borderColor, width: 0.5),
       ),
       clipBehavior: Clip.antiAlias,
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
           width: width,
           height: height,

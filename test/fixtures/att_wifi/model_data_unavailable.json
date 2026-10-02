@@ -1,0 +1,22 @@
+{
+  "power": {
+    "battChargeLevel": 80,
+    "PMState": "Online"
+  },
+  "wwan": {
+    "connection": "Connected",
+    "dataTransferred": {
+      "rx": 40000000,
+      "tx": 39272346
+    },
+    "dataUsage": {
+      "serverDataValidState": "Invalid"
+    }
+  },
+  "wifi": {
+    "SSID": "MyHotspot"
+  },
+  "router": {
+    "clientList": []
+  }
+}

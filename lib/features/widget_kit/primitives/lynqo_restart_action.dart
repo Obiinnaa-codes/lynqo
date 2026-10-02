@@ -39,7 +39,8 @@ class LynqoRestartAction extends StatelessWidget {
           child: LynqoMetricWidget(
             ringSpacing: ringSpacing,
             ring: LynqoMetricRing(
-              progress: 0,
+              progress: LynqoWidgetDimensions.mediumHomeDecorativeRingProgress,
+              fullCircle: true,
               center: isLoading
                   ? SizedBox(
                       width: iconSize,
@@ -52,11 +53,11 @@ class LynqoRestartAction extends StatelessWidget {
                   : LynqoWidgetIcon(
                       icon: Icons.power_settings_new,
                       size: iconSize,
+                      muted: true,
                     ),
             ),
             primaryValue: 'Restart',
             secondaryLabel: routerLabel,
-            primaryFontSize: 15,
           ),
         ),
       ),

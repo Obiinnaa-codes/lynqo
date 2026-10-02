@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 
-import '../sizing/lynqo_widget_size.dart';
+import '../sizing/lynqo_widget_dimensions.dart';
 import '../theme/lynqo_widget_theme.dart';
+
+/// Primary line under a home-widget metric ring.
+enum LynqoHomeMetricPrimaryRole {
+  metricValue,
+  actionLabel,
+}
+
 /// Centred metric column: ring, primary value, secondary label.
 class LynqoMetricWidget extends StatelessWidget {
   const LynqoMetricWidget({
@@ -9,21 +16,25 @@ class LynqoMetricWidget extends StatelessWidget {
     required this.ring,
     required this.primaryValue,
     required this.secondaryLabel,
-    this.primaryFontSize = 16,
-    this.ringSpacing = 8,
-    this.labelSpacing = 2,
+    this.primaryRole = LynqoHomeMetricPrimaryRole.metricValue,
+    this.ringSpacing = LynqoWidgetDimensions.mediumHomeMetricRingSpacing,
+    this.labelSpacing = LynqoWidgetDimensions.mediumHomeMetricLabelSpacing,
   });
 
   final Widget ring;
   final String primaryValue;
   final String secondaryLabel;
-  final double primaryFontSize;
+  final LynqoHomeMetricPrimaryRole primaryRole;
   final double ringSpacing;
   final double labelSpacing;
 
   @override
   Widget build(BuildContext context) {
     final theme = LynqoWidgetTheme.of(context);
+    final primaryStyle = switch (primaryRole) {
+      LynqoHomeMetricPrimaryRole.metricValue => theme.homeMetricValueStyle(),
+      LynqoHomeMetricPrimaryRole.actionLabel => theme.homeActionLabelStyle(),
+    };
 
     return SizedBox(
       width: double.infinity,
@@ -33,23 +44,31 @@ class LynqoMetricWidget extends StatelessWidget {
         children: [
           ring,
           SizedBox(height: ringSpacing),
-          Text(
-            primaryValue,
-            style: theme.primaryValueStyle(LynqoWidgetSize.medium).copyWith(
-              fontSize: primaryFontSize,
-              fontWeight: FontWeight.w600,
+          SizedBox(
+            height: LynqoWidgetDimensions.mediumHomeMetricPrimaryLineHeight,
+            child: Center(
+              child: Text(
+                primaryValue,
+                style: primaryStyle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
           ),
           SizedBox(height: labelSpacing),
-          Text(
-            secondaryLabel,
-            style: theme.captionStyle(fontSize: 12),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
+          SizedBox(
+            height: LynqoWidgetDimensions.mediumHomeMetricSecondaryLineHeight,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Text(
+                secondaryLabel,
+                style: theme.homeMetricLabelStyle(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ),
           ),
         ],
       ),

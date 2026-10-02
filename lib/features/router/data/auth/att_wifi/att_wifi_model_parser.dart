@@ -30,26 +30,28 @@ abstract final class AttWifiModelParser {
     final accountType = _stringFromPaths(decoded, _accountTypePaths);
     final roaming = _parseBool(_readFirst(decoded, _roamingPaths));
 
-    final dataUsedBytes = _resolveDataUsedBytes(decoded);
-    final dataLimitBytes = _intFromPaths(decoded, _dataLimitPaths);
+    final dataLimitValid = _dataLimitValid(decoded);
+    final sessionTransferredTotal = _sessionTransferredTotal(decoded);
+    final dataUsedBytes = _resolveDataUsedBytes(
+      decoded,
+      dataLimitValid: dataLimitValid,
+      sessionTransferredTotal: sessionTransferredTotal,
+    );
+    final dataLimitBytes = _resolveDataLimitBytes(decoded);
     final dataRemainingBytes = _intFromPaths(decoded, _dataRemainingPaths);
 
-    final dataUsagePercent =
-        _intFromPaths(decoded, _dataUsagePercentPaths) ??
-        _dataUsagePercent(usedBytes: dataUsedBytes, limitBytes: dataLimitBytes);
+    final dataUsagePercent = dataLimitValid == false
+        ? _intFromPaths(decoded, _dataUsagePercentPaths)
+        : _intFromPaths(decoded, _dataUsagePercentPaths) ??
+            _dataUsagePercent(
+              usedBytes: dataUsedBytes,
+              limitBytes: dataLimitBytes,
+            );
 
-    final billingDaysRemaining =
-        _intFromPaths(decoded, _billingDaysLeftPaths) ??
-        _daysFromBillingRemainder(
-          _intFromPaths(decoded, _billingRemainderSecondsPaths),
-        );
+    final billingDaysRemaining = _intFromPaths(decoded, _billingDaysLeftPaths);
 
     final planTitle = _stringFromPaths(decoded, _planTitlePaths);
     final dataValidState = _stringFromPaths(decoded, _dataValidStatePaths);
-    final nextBillingDateLabel = _formatEpochLabel(
-      _intFromPaths(decoded, _nextBillingDatePaths),
-    );
-
     final wifiSsid = _stringFromPaths(decoded, _wifiSsidPaths);
     final wifiPrimaryMode = _stringFromPaths(decoded, _wifiPrimaryModePaths);
     final wifiSecondaryMode = _stringFromPaths(decoded, _wifiSecondaryModePaths);
@@ -117,11 +119,15 @@ abstract final class AttWifiModelParser {
       dataUsagePercent: dataUsagePercent,
       billingDaysRemaining: billingDaysRemaining,
       planTitle: planTitle,
-      dataUsedSummary: formatDataVolume(dataUsedBytes),
+      dataUsedSummary: formatDataVolume(
+        dataUsedBytes,
+        oneDecimalMb: dataLimitValid == false,
+      ),
       dataLimitSummary: formatDataVolume(dataLimitBytes),
       dataRemainingSummary: formatDataVolume(dataRemainingBytes),
-      nextBillingDateLabel: nextBillingDateLabel,
+      nextBillingDateLabel: null,
       dataValidState: dataValidState,
+      dataLimitValid: dataLimitValid,
       wifiSsid: wifiSsid,
       wifiStatus: wifiStatus,
       wifiProfile: wifiProfile,
@@ -361,7 +367,10 @@ abstract final class AttWifiModelParser {
     return messages;
   }
 
-  static String? formatDataVolume(int? bytes) {
+  static String? formatDataVolume(
+    int? bytes, {
+    bool oneDecimalMb = false,
+  }) {
     if (bytes == null || bytes < 0) {
       return null;
     }
@@ -373,23 +382,67 @@ abstract final class AttWifiModelParser {
     }
     if (bytes >= mb) {
       final value = bytes / mb;
-      return '${value.toStringAsFixed(value >= 10 ? 0 : 1)} MB';
+      final decimals = oneDecimalMb ? 1 : (value >= 10 ? 0 : 1);
+      return '${value.toStringAsFixed(decimals)} MB';
     }
     return '$bytes B';
   }
 
-  static int? _resolveDataUsedBytes(Map<String, dynamic> root) {
+  static bool? _dataLimitValid(Map<String, dynamic> root) {
+    final state = _stringFromPaths(root, _dataValidStatePaths);
+    if (state == null) {
+      return null;
+    }
+    return state == 'Valid';
+  }
+
+  static int? _resolveDataLimitBytes(Map<String, dynamic> root) {
+    final planSize = _intFromPaths(root, _dataLimitPaths);
+    if (planSize != null && planSize > 0) {
+      return planSize;
+    }
+
+    final transferred = _intFromPaths(root, [
+      ['wwan', 'dataUsage', 'serverDataTransferred'],
+    ]);
+    final remaining = _intFromPaths(root, _dataRemainingPaths);
+    if (transferred != null && remaining != null) {
+      return transferred + remaining;
+    }
+    return null;
+  }
+
+  /// Session WAN total (`sessTransferredTotal` in AT&T web UI).
+  static int? _sessionTransferredTotal(Map<String, dynamic> root) {
+    final scalar = _intFromPaths(root, [
+      ['wwan', 'dataTransferred'],
+    ]);
+    if (scalar != null) {
+      return scalar;
+    }
+
+    final rx = _intFromPaths(root, _sessionRxBytesPaths);
+    final tx = _intFromPaths(root, _sessionTxBytesPaths);
+    if (rx == null && tx == null) {
+      return null;
+    }
+    return (rx ?? 0) + (tx ?? 0);
+  }
+
+  static int? _resolveDataUsedBytes(
+    Map<String, dynamic> root, {
+    required bool? dataLimitValid,
+    required int? sessionTransferredTotal,
+  }) {
+    if (dataLimitValid == false) {
+      return sessionTransferredTotal;
+    }
+
     final serverTransferred = _intFromPaths(root, [
       ['wwan', 'dataUsage', 'serverDataTransferred'],
     ]);
-    final genericTransferred = _intFromPaths(root, [
-      ['wwan', 'dataUsage', 'generic', 'dataTransferred'],
-    ]);
-    final sessionTotal = _intFromPaths(root, [
-      ['wwan', 'dataTransferred'],
-    ]);
 
-    var used = genericTransferred ?? serverTransferred ?? sessionTotal;
+    var used = serverTransferred ?? sessionTransferredTotal;
     if (used == null) {
       return null;
     }
@@ -460,21 +513,6 @@ abstract final class AttWifiModelParser {
       return null;
     }
     return ((usedBytes / limitBytes) * 100).round().clamp(0, 999);
-  }
-
-  static int? _daysFromBillingRemainder(int? seconds) {
-    if (seconds == null) {
-      return null;
-    }
-    return (seconds / 86400).ceil();
-  }
-
-  static String? _formatEpochLabel(int? epochSeconds) {
-    if (epochSeconds == null || epochSeconds <= 0) {
-      return null;
-    }
-    final date = DateTime.fromMillisecondsSinceEpoch(epochSeconds * 1000);
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
   static Object? _readFirst(
@@ -611,7 +649,6 @@ abstract final class AttWifiModelParser {
   ];
 
   static const _dataLimitPaths = [
-    ['wwan', 'dataUsage', 'generic', 'billingCycleLimit'],
     ['wwan', 'dataUsage', 'planSize'],
   ];
 
@@ -621,15 +658,10 @@ abstract final class AttWifiModelParser {
 
   static const _dataUsagePercentPaths = [
     ['wwan', 'dataUsage', 'dataUsagePercentage'],
-    ['wwan', 'dataUsage', 'generic', 'dataUsagePercentage'],
   ];
 
   static const _billingDaysLeftPaths = [
     ['wwan', 'dataUsage', 'serverDaysLeft'],
-  ];
-
-  static const _billingRemainderSecondsPaths = [
-    ['wwan', 'dataUsage', 'generic', 'billingCycleRemainder'],
   ];
 
   static const _planTitlePaths = [
@@ -639,10 +671,6 @@ abstract final class AttWifiModelParser {
 
   static const _dataValidStatePaths = [
     ['wwan', 'dataUsage', 'serverDataValidState'],
-  ];
-
-  static const _nextBillingDatePaths = [
-    ['wwan', 'dataUsage', 'generic', 'nextBillingDate'],
   ];
 
   static const _dataShareEnabledPaths = [

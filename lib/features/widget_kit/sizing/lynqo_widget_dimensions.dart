@@ -4,13 +4,19 @@ import 'lynqo_widget_size.dart';
 
 /// Single source of truth for widget kit layout metrics.
 abstract final class LynqoWidgetDimensions {
-  static const double surfaceRadius = 28;
+  static const double surfaceRadius = 26;
 
   /// Medium home composite — keep in sync with `LynqoMediumWidgetView` in LynqoWidget.swift.
-  static const EdgeInsets mediumHomeContentPadding =
-      EdgeInsets.fromLTRB(12, 14, 12, 14);
-  static const double mediumHomeDividerHeight = 72;
+  static const EdgeInsets mediumHomeContentPadding = EdgeInsets.all(16);
   static const double mediumHomeMetricRingSpacing = 8;
+  static const double mediumHomeMetricLabelSpacing = 4;
+  /// Fixed slots so primary/secondary lines align across medium home columns.
+  static const double mediumHomeMetricPrimaryLineHeight = 21;
+  static const double mediumHomeMetricSecondaryLineHeight = 32;
+  /// Decorative full rings (devices, restart) — sync with medium home Swift widget.
+  static const double mediumHomeDecorativeRingProgress = 1;
+  /// Keep in sync with `LynqoHomeTypography.ringStrokeWidth` in LynqoWidget.swift.
+  static const double homeMetricRingStrokeWidth = 3;
 
   static double internalPadding(LynqoWidgetSize size) {
     switch (size) {

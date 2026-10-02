@@ -26,14 +26,10 @@
       "serverDataTransferred": 2147483648,
       "serverDataRemaining": 9663676416,
       "serverDaysLeft": 12,
+      "planSize": 12884901888,
       "share": {
         "enabled": "true",
         "dataCountAll": 3758096384
-      },
-      "generic": {
-        "billingCycleLimit": 12884901888,
-        "billingCycleRemainder": 1209600,
-        "nextBillingDate": 1761955200
       }
     }
   },

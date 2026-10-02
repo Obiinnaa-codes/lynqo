@@ -10,9 +10,10 @@ class LynqoMetricRing extends StatelessWidget {
     super.key,
     required this.progress,
     this.diameter,
-    this.strokeWidth = 4,
+    this.strokeWidth = LynqoWidgetDimensions.homeMetricRingStrokeWidth,
     this.progressColor,
     this.center,
+    this.fullCircle = false,
   });
 
   final double? progress;
@@ -20,6 +21,7 @@ class LynqoMetricRing extends StatelessWidget {
   final double strokeWidth;
   final Color? progressColor;
   final Widget? center;
+  final bool fullCircle;
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +35,7 @@ class LynqoMetricRing extends StatelessWidget {
       strokeWidth: strokeWidth,
       progressColor: progressColor,
       center: center,
+      fullCircle: fullCircle,
     );
   }
 }

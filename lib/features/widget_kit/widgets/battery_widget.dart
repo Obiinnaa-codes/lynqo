@@ -77,9 +77,11 @@ class _SmallLayout extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        LynqoWidgetPrimaryValue(
-          text: percentLabel,
-          size: LynqoWidgetSize.small,
+        Text(
+          percentLabel,
+          style: LynqoWidgetTheme.of(context).homeSmallBatteryPercentStyle(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );

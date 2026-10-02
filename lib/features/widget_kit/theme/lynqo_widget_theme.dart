@@ -52,9 +52,9 @@ class LynqoWidgetTheme extends ThemeExtension<LynqoWidgetTheme> {
     surfaceRadius: LynqoWidgetDimensions.surfaceRadius,
     surfaceShadow: [
       BoxShadow(
-        color: Color(0x14000000),
-        blurRadius: 24,
-        offset: Offset(0, 8),
+        color: Color(0x0F000000),
+        blurRadius: 16,
+        offset: Offset(0, 4),
       ),
     ],
   );
@@ -114,6 +114,47 @@ class LynqoWidgetTheme extends ThemeExtension<LynqoWidgetTheme> {
       fontWeight: FontWeight.w400,
       color: secondaryText,
       height: 1.35,
+    );
+  }
+
+  /// iOS home widget metric values (Flutter preview parity).
+  TextStyle homeMetricValueStyle() {
+    return TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.w500,
+      letterSpacing: -0.31,
+      height: 1.31,
+      color: primaryText,
+    );
+  }
+
+  TextStyle homeMetricLabelStyle() {
+    return TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0,
+      height: 1.33,
+      color: secondaryText,
+    );
+  }
+
+  TextStyle homeActionLabelStyle() {
+    return TextStyle(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      letterSpacing: 0,
+      height: 1.33,
+      color: primaryText,
+    );
+  }
+
+  TextStyle homeSmallBatteryPercentStyle() {
+    return TextStyle(
+      fontSize: 32,
+      fontWeight: FontWeight.w400,
+      letterSpacing: 0.41,
+      height: 1.25,
+      color: primaryText,
     );
   }
 

@@ -23,6 +23,7 @@ class DataUsageWidgetData {
     this.remainingSummary,
     this.limitSummary,
     this.usagePercent,
+    this.planUnavailable = false,
     this.comparisonCaption,
     this.billingResetLabel,
     this.historyValues,
@@ -34,6 +35,7 @@ class DataUsageWidgetData {
   final String? remainingSummary;
   final String? limitSummary;
   final int? usagePercent;
+  final bool planUnavailable;
   final String? comparisonCaption;
   final String? billingResetLabel;
   final List<double>? historyValues;

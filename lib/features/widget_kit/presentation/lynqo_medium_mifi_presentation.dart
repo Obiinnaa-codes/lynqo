@@ -36,6 +36,9 @@ abstract final class LynqoMediumMiFiPresentation {
   }
 
   static String dataSecondary(LynqoRouterWidgetSnapshot snapshot) {
+    if (snapshot.dataUsage.planUnavailable) {
+      return 'Data unavailable';
+    }
     final limit = snapshot.dataUsage.limitSummary;
     if (limit != null && limit.isNotEmpty) {
       return 'of $limit';

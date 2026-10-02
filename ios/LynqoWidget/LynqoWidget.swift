@@ -49,6 +49,7 @@ struct LynqoSnapshot {
   let dataRemaining: String
   let dataLimitSummary: String
   let dataUsagePercent: Int?
+  let planUnavailable: Bool
   let deviceCount: Int?
   let deviceNames: [String]
   let updatedAt: String
@@ -76,6 +77,9 @@ struct LynqoSnapshot {
   }
 
   var dataSecondaryLabel: String {
+    if planUnavailable {
+      return "Data unavailable"
+    }
     if !dataLimitSummary.isEmpty {
       return "of \(dataLimitSummary)"
     }
@@ -103,6 +107,7 @@ struct LynqoSnapshot {
     dataRemaining: "",
     dataLimitSummary: "",
     dataUsagePercent: nil,
+    planUnavailable: false,
     deviceCount: nil,
     deviceNames: [],
     updatedAt: ""
@@ -117,6 +122,7 @@ struct LynqoSnapshot {
     dataRemaining: "",
     dataLimitSummary: "50 GB",
     dataUsagePercent: 25,
+    planUnavailable: false,
     deviceCount: 3,
     deviceNames: ["iPhone", "Mac", "iPad"],
     updatedAt: "preview"
@@ -146,6 +152,7 @@ struct LynqoSnapshot {
       dataRemaining: dataUsage?["remainingSummary"] as? String ?? "",
       dataLimitSummary: dataUsage?["limitSummary"] as? String ?? "",
       dataUsagePercent: intValue(dataUsage?["usagePercent"]),
+      planUnavailable: dataUsage?["planUnavailable"] as? Bool ?? false,
       deviceCount: intValue(devices?["count"]),
       deviceNames: names,
       updatedAt: root["updatedAt"] as? String ?? ""
@@ -217,20 +224,45 @@ struct LynqoWidgetHeader: View {
 
 private let ringArcFraction: CGFloat = 0.94
 
+// Home widget typography — sync conceptually with LynqoWidgetTheme home styles in Flutter preview.
+private enum LynqoHomeTypography {
+  static let metricValueSize: CGFloat = 16
+  static let metricLabelSize: CGFloat = 12
+  static let actionLabelSize: CGFloat = 12
+  static let smallBatteryPercentSize: CGFloat = 32
+  static let metricValueKerning: CGFloat = -0.31
+  static let smallBatteryKerning: CGFloat = 0.41
+  static let ringStrokeWidth: CGFloat = 3
+  static let ringToValueSpacing: CGFloat = 8
+  static let valueToLabelSpacing: CGFloat = 4
+  static let metricPrimaryLineHeight: CGFloat = 21
+  static let metricSecondaryLineHeight: CGFloat = 32
+  static let decorativeRingProgress: Double = 1
+  static let mediumHomePaddingH: CGFloat = 16
+  static let mediumHomePaddingV: CGFloat = 16
+}
+
+enum LynqoMetricPrimaryStyle {
+  case metricValue
+  case actionLabel
+}
+
 struct LynqoWidgetRing: View {
   let tokens: LynqoTokens
   let progress: Double
   let diameter: CGFloat
   let systemIcon: String
-  var strokeWidth: CGFloat = 4
+  var strokeWidth: CGFloat = LynqoHomeTypography.ringStrokeWidth
   var accentColor: Color?
+  var fullCircle: Bool = false
 
   var body: some View {
     let clamped = CGFloat(min(max(progress, 0), 1))
     let ringColor = accentColor ?? tokens.accentRing
+    let arcFraction = fullCircle ? 1 : ringArcFraction
     ZStack {
       Circle()
-        .trim(from: 0, to: ringArcFraction)
+        .trim(from: 0, to: arcFraction)
         .stroke(
           tokens.chartTrack,
           style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
@@ -238,7 +270,7 @@ struct LynqoWidgetRing: View {
         .rotationEffect(.degrees(-90))
       if clamped > 0 {
         Circle()
-          .trim(from: 0, to: ringArcFraction * clamped)
+          .trim(from: 0, to: arcFraction * clamped)
           .stroke(
             ringColor,
             style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
@@ -246,7 +278,7 @@ struct LynqoWidgetRing: View {
           .rotationEffect(.degrees(-90))
       }
       Image(systemName: systemIcon)
-        .font(.system(size: diameter * 0.38, weight: .medium))
+        .font(.system(size: diameter * 0.38, weight: .regular))
         .foregroundStyle(tokens.secondaryText)
     }
     .frame(width: diameter, height: diameter)
@@ -259,41 +291,58 @@ struct LynqoMetricColumn: View {
   let systemIcon: String
   let primary: String
   let secondary: String
-  var primarySize: CGFloat = 15
+  var primaryStyle: LynqoMetricPrimaryStyle = .metricValue
   var ringDiameter: CGFloat = 52
+  var fullCircle: Bool = false
 
   var body: some View {
-    VStack(spacing: 8) {
+    VStack(spacing: LynqoHomeTypography.ringToValueSpacing) {
       LynqoWidgetRing(
         tokens: tokens,
         progress: progress,
         diameter: ringDiameter,
-        systemIcon: systemIcon
+        systemIcon: systemIcon,
+        fullCircle: fullCircle
       )
-      Text(primary)
-        .font(.system(size: primarySize, weight: .semibold))
-        .foregroundStyle(tokens.primaryText)
-        .lineLimit(1)
-        .minimumScaleFactor(0.65)
-      Text(secondary)
-        .font(.system(size: 12, weight: .medium))
-        .foregroundStyle(tokens.secondaryText)
-        .lineLimit(2)
-        .minimumScaleFactor(0.8)
-        .multilineTextAlignment(.center)
+      VStack(spacing: LynqoHomeTypography.valueToLabelSpacing) {
+        Text(primary)
+          .font(primaryFont)
+          .kerning(primaryKerning)
+          .foregroundStyle(tokens.primaryText)
+          .lineLimit(1)
+          .minimumScaleFactor(0.65)
+          .frame(height: LynqoHomeTypography.metricPrimaryLineHeight)
+        Text(secondary)
+          .font(.system(size: LynqoHomeTypography.metricLabelSize, weight: .regular))
+          .foregroundStyle(tokens.secondaryText)
+          .lineLimit(2)
+          .minimumScaleFactor(0.8)
+          .multilineTextAlignment(.center)
+          .frame(
+            height: LynqoHomeTypography.metricSecondaryLineHeight,
+            alignment: .top
+          )
+      }
     }
     .frame(maxWidth: .infinity)
   }
-}
 
-struct LynqoVerticalDivider: View {
-  let tokens: LynqoTokens
-  var height: CGFloat = 72
+  private var primaryFont: Font {
+    switch primaryStyle {
+    case .metricValue:
+      return .system(size: LynqoHomeTypography.metricValueSize, weight: .medium)
+    case .actionLabel:
+      return .system(size: LynqoHomeTypography.actionLabelSize, weight: .medium)
+    }
+  }
 
-  var body: some View {
-    Rectangle()
-      .fill(tokens.chartTrack.opacity(0.9))
-      .frame(width: 1, height: height)
+  private var primaryKerning: CGFloat {
+    switch primaryStyle {
+    case .metricValue:
+      return LynqoHomeTypography.metricValueKerning
+    case .actionLabel:
+      return 0
+    }
   }
 }
 
@@ -373,7 +422,8 @@ struct LynqoSmallWidgetView: View {
         )
         Spacer(minLength: 8)
         Text(percentLabel)
-          .font(.system(size: 36, weight: .semibold))
+          .font(.system(size: LynqoHomeTypography.smallBatteryPercentSize, weight: .regular))
+          .kerning(LynqoHomeTypography.smallBatteryKerning)
           .foregroundStyle(tokens.primaryText)
           .lineLimit(1)
           .minimumScaleFactor(0.7)
@@ -415,32 +465,29 @@ struct LynqoMediumWidgetView: View {
           secondary: "Battery",
           ringDiameter: ringSize
         )
-        LynqoVerticalDivider(tokens: tokens)
         LynqoMetricColumn(
           tokens: tokens,
           progress: snapshot.dataProgress,
           systemIcon: "arrow.up.arrow.down",
           primary: snapshot.dataPrimaryLabel,
           secondary: snapshot.dataSecondaryLabel,
-          primarySize: 14,
           ringDiameter: ringSize
         )
-        LynqoVerticalDivider(tokens: tokens)
         LynqoMetricColumn(
           tokens: tokens,
-          progress: 0,
+          progress: LynqoHomeTypography.decorativeRingProgress,
           systemIcon: "laptopcomputer.and.iphone",
           primary: snapshot.devicesPrimaryLabel,
           secondary: "Devices",
-          ringDiameter: ringSize
+          ringDiameter: ringSize,
+          fullCircle: true
         )
-        LynqoVerticalDivider(tokens: tokens)
         restartColumn
       }
       Spacer(minLength: 0)
     }
-    .padding(.horizontal, 12)
-    .padding(.vertical, 14)
+    .padding(.horizontal, LynqoHomeTypography.mediumHomePaddingH)
+    .padding(.vertical, LynqoHomeTypography.mediumHomePaddingV)
   }
 
   @ViewBuilder
@@ -449,22 +496,24 @@ struct LynqoMediumWidgetView: View {
       Link(destination: URL(string: rebootDeepLink)!) {
         LynqoMetricColumn(
           tokens: tokens,
-          progress: 0,
+          progress: LynqoHomeTypography.decorativeRingProgress,
           systemIcon: "power",
           primary: "Restart",
           secondary: snapshot.restartSecondaryLabel,
-          ringDiameter: ringSize
+          ringDiameter: ringSize,
+          fullCircle: true
         )
       }
       .buttonStyle(.plain)
     } else {
       LynqoMetricColumn(
         tokens: tokens,
-        progress: 0,
+        progress: LynqoHomeTypography.decorativeRingProgress,
         systemIcon: "power",
         primary: "Restart",
         secondary: "Open Lynqo",
-        ringDiameter: ringSize
+        ringDiameter: ringSize,
+        fullCircle: true
       )
     }
   }
@@ -482,7 +531,7 @@ struct LynqoWidgetRootView: View {
 // WidgetKit caches aggressively; bump [kind] when layouts change so the gallery picks up new binaries.
 @main
 struct LynqoWidget: Widget {
-  let kind: String = "LynqoMiFiHomeWidget3"
+  let kind: String = "LynqoMiFiHomeWidget6"
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: LynqoProvider()) { entry in

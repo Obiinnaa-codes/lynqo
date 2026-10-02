@@ -12,6 +12,7 @@ class LynqoWidgetRing extends StatelessWidget {
     this.strokeWidth = 5,
     this.progressColor,
     this.center,
+    this.fullCircle = false,
   });
 
   /// 0.0 – 1.0
@@ -20,6 +21,9 @@ class LynqoWidgetRing extends StatelessWidget {
   final double strokeWidth;
   final Color? progressColor;
   final Widget? center;
+
+  /// When true, draws a closed 360° ring (no arc gap). Battery/data use the default arc.
+  final bool fullCircle;
 
   @override
   Widget build(BuildContext context) {
@@ -41,6 +45,7 @@ class LynqoWidgetRing extends StatelessWidget {
                   ? theme.chartBarInactive
                   : theme.chartBarInactive,
               strokeWidth: strokeWidth,
+              fullCircle: fullCircle,
             ),
           ),
           ?center,
@@ -56,18 +61,23 @@ class _RingPainter extends CustomPainter {
     required this.color,
     required this.trackColor,
     required this.strokeWidth,
+    required this.fullCircle,
   });
 
   final double progress;
   final Color color;
   final Color trackColor;
   final double strokeWidth;
+  final bool fullCircle;
+
+  static const double _arcGapFraction = 0.94;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final start = -math.pi / 2;
-    const sweepMax = math.pi * 2 * 0.94;
+    final arcFraction = fullCircle ? 1.0 : _arcGapFraction;
+    final sweepMax = math.pi * 2 * arcFraction;
     final sweep = sweepMax * progress;
 
     final track = Paint()
@@ -90,6 +100,8 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RingPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color;
+    return oldDelegate.progress != progress ||
+        oldDelegate.color != color ||
+        oldDelegate.fullCircle != fullCircle;
   }
 }

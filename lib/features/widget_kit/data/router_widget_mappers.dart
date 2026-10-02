@@ -57,8 +57,11 @@ abstract final class RouterWidgetMappers {
       billingResetLabel = '${status.billingDaysRemaining} days left in cycle';
     }
 
+    final planUnavailable = status.dataLimitValid == false;
     String? comparisonCaption;
-    if (status.dataValidState != null && status.planTitle != null) {
+    if (planUnavailable) {
+      comparisonCaption = 'Data unavailable';
+    } else if (status.dataValidState != null && status.planTitle != null) {
       comparisonCaption = '${status.planTitle} · ${status.dataValidState}';
     } else if (status.planTitle != null) {
       comparisonCaption = status.planTitle;
@@ -69,8 +72,9 @@ abstract final class RouterWidgetMappers {
       remainingSummary: status.dataRemainingSummary == null
           ? null
           : '${status.dataRemainingSummary} remaining',
-      limitSummary: status.dataLimitSummary,
+      limitSummary: planUnavailable ? null : status.dataLimitSummary,
       usagePercent: status.dataUsagePercent,
+      planUnavailable: planUnavailable,
       comparisonCaption: comparisonCaption,
       billingResetLabel: billingResetLabel,
     );

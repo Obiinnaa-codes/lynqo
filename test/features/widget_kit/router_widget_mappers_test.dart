@@ -27,6 +27,21 @@ void main() {
     expect(snapshot.networkSpeed.downloadMbps, isNull);
   });
 
+  test('maps unavailable plan to session usage snapshot', () {
+    final body = File('test/fixtures/att_wifi/model_data_unavailable.json')
+        .readAsStringSync();
+    final status = AttWifiModelParser.parse(body);
+    final snapshot = RouterWidgetMappers.fromRouterStatus(
+      status,
+      routerHost: 'attwifimanager',
+    );
+
+    expect(snapshot.dataUsage.usedSummary, '75.6 MB');
+    expect(snapshot.dataUsage.planUnavailable, isTrue);
+    expect(snapshot.dataUsage.limitSummary, isNull);
+    expect(snapshot.dataUsage.comparisonCaption, 'Data unavailable');
+  });
+
   test('formatMbps', () {
     expect(RouterWidgetMappers.formatMbps(142000000), '142 Mbps');
     expect(RouterWidgetMappers.formatMbps(null), isNull);

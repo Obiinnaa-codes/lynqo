@@ -39,6 +39,32 @@ void main() {
     );
   }
 
+  test('presentation shows data unavailable when plan is invalid', () {
+    final snapshot = synced(
+      usedSummary: '75.6 MB',
+      usagePercent: null,
+    );
+    final unavailable = LynqoRouterWidgetSnapshot(
+      updatedAt: DateTime.utc(2026, 1, 1),
+      battery: const BatteryWidgetData(),
+      dataUsage: const DataUsageWidgetData(
+        usedSummary: '75.6 MB',
+        planUnavailable: true,
+      ),
+      signal: const SignalWidgetData(),
+      connection: const ConnectionWidgetData(),
+      devices: const ConnectedDevicesWidgetData(),
+      networkSpeed: const NetworkSpeedWidgetData(),
+      routerOverview: const RouterOverviewWidgetData(routerName: 'MiFi'),
+    );
+    expect(LynqoMediumMiFiPresentation.dataPrimary(unavailable), '75.6 MB');
+    expect(
+      LynqoMediumMiFiPresentation.dataSecondary(unavailable),
+      'Data unavailable',
+    );
+    expect(LynqoMediumMiFiPresentation.dataPrimary(snapshot), isNot('—'));
+  });
+
   test('presentation formats data secondary as of limit', () {
     final snapshot = synced(
       usedSummary: '12.4 GB',

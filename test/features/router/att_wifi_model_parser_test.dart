@@ -29,7 +29,7 @@ void main() {
     expect(status.wifiBandSnapshots.first.ssid, 'MyHotspot');
     expect(status.wifiBandSnapshots.last.bandLabel, '5 GHz');
     expect(status.wifiBandSnapshots.last.ssid, 'MyHotspot_5G');
-    // share enabled: generic 2GB + (3.5GB all - 2GB server) = 3.5GB used
+    // share enabled: server 2GB + (3.5GB all - 2GB server) = 3.5GB used
     expect(status.dataUsageBytes, 3758096384);
     expect(status.dataUsagePercent, 29);
     expect(status.billingDaysRemaining, 12);
@@ -44,7 +44,7 @@ void main() {
     expect(status.wifiConnectedClients.last.bandLabel, '5 GHz');
     expect(status.dataUsedSummary, '3.5 GB');
     expect(status.dataLimitSummary, '12 GB');
-    expect(status.nextBillingDateLabel, isNotNull);
+    expect(status.nextBillingDateLabel, isNull);
     expect(status.unreadSmsCount, 1);
     expect(status.smsMessages, hasLength(1));
     expect(status.smsMessages.first.sender, '+15551212');
@@ -53,5 +53,16 @@ void main() {
 
   test('formatDataVolume handles small values', () {
     expect(AttWifiModelParser.formatDataVolume(1024), '1024 B');
+  });
+
+  test('uses session rx+tx when billing limit is unavailable', () {
+    final body = File('test/fixtures/att_wifi/model_data_unavailable.json')
+        .readAsStringSync();
+    final status = AttWifiModelParser.parse(body);
+
+    expect(status.dataLimitValid, isFalse);
+    expect(status.dataUsageBytes, 79272346);
+    expect(status.dataUsedSummary, '75.6 MB');
+    expect(status.dataUsagePercent, isNull);
   });
 }

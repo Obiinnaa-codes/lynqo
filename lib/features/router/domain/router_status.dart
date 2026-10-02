@@ -27,6 +27,7 @@ class RouterStatus {
     this.dataRemainingSummary,
     this.nextBillingDateLabel,
     this.dataValidState,
+    this.dataLimitValid,
     this.wifiSsid,
     this.wifiStatus,
     this.wifiProfile,
@@ -65,6 +66,8 @@ class RouterStatus {
   final String? dataRemainingSummary;
   final String? nextBillingDateLabel;
   final String? dataValidState;
+  /// Derived from `serverDataValidState` — when false, billing limit is unavailable.
+  final bool? dataLimitValid;
   final String? wifiSsid;
   final String? wifiStatus;
   final String? wifiProfile;
