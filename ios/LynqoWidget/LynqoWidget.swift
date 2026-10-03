@@ -6,6 +6,9 @@ private let snapshotKey = "lynqo_widget_snapshot_v1"
 // home_widget iOS only forwards URLs that include a `homeWidget` query item.
 private let rebootDeepLink = "lynqo://reboot?homeWidget"
 
+/// Sync with [LynqoWidgetColors.accentGreen] in Flutter.
+private let lynqoAccentGreen = Color(red: 0.204, green: 0.780, blue: 0.349)
+
 // Sync with lib/features/widget_kit/theme/lynqo_widget_colors.dart + lynqo_widget_dimensions.dart
 struct LynqoTokens {
   let surface: Color
@@ -40,6 +43,11 @@ struct LynqoTokens {
   }
 }
 
+struct LynqoDeviceRow: Equatable {
+  let name: String
+  let subtitle: String
+}
+
 struct LynqoSnapshot {
   let routerName: String
   let batteryPercent: Int?
@@ -52,6 +60,7 @@ struct LynqoSnapshot {
   let planUnavailable: Bool
   let deviceCount: Int?
   let deviceNames: [String]
+  let deviceRows: [LynqoDeviceRow]
   let updatedAt: String
 
   var isSynced: Bool { !updatedAt.isEmpty }
@@ -94,8 +103,11 @@ struct LynqoSnapshot {
     return "\(count)"
   }
 
-  var restartSecondaryLabel: String {
-    routerName.isEmpty ? "MiFi" : routerName
+  var restartSecondaryLabel: String { "" }
+
+  var batteryAccentColor: Color? {
+    guard batteryPercent == 100 else { return nil }
+    return lynqoAccentGreen
   }
 
   static let empty = LynqoSnapshot(
@@ -110,22 +122,8 @@ struct LynqoSnapshot {
     planUnavailable: false,
     deviceCount: nil,
     deviceNames: [],
+    deviceRows: [],
     updatedAt: ""
-  )
-
-  static let preview = LynqoSnapshot(
-    routerName: "MiFi",
-    batteryPercent: 94,
-    batteryCharging: false,
-    batteryStatus: "",
-    dataUsed: "12.4 GB",
-    dataRemaining: "",
-    dataLimitSummary: "50 GB",
-    dataUsagePercent: 25,
-    planUnavailable: false,
-    deviceCount: 3,
-    deviceNames: ["iPhone", "Mac", "iPad"],
-    updatedAt: "preview"
   )
 
   static func load() -> LynqoSnapshot {
@@ -142,6 +140,7 @@ struct LynqoSnapshot {
     let devices = root["devices"] as? [String: Any]
     let dataUsage = root["dataUsage"] as? [String: Any]
     let names = devices?["names"] as? [String] ?? []
+    let rows = Self.parseDeviceRows(devices: devices, fallbackNames: names)
 
     return LynqoSnapshot(
       routerName: root["routerName"] as? String ?? "MiFi",
@@ -155,8 +154,26 @@ struct LynqoSnapshot {
       planUnavailable: dataUsage?["planUnavailable"] as? Bool ?? false,
       deviceCount: intValue(devices?["count"]),
       deviceNames: names,
+      deviceRows: rows,
       updatedAt: root["updatedAt"] as? String ?? ""
     )
+  }
+
+  private static func parseDeviceRows(
+    devices: [String: Any]?,
+    fallbackNames: [String]
+  ) -> [LynqoDeviceRow] {
+    if let items = devices?["items"] as? [[String: Any]] {
+      let parsed = items.compactMap { item -> LynqoDeviceRow? in
+        guard let name = item["name"] as? String, !name.isEmpty else { return nil }
+        let subtitle = item["subtitle"] as? String ?? ""
+        return LynqoDeviceRow(name: name, subtitle: subtitle)
+      }
+      if !parsed.isEmpty {
+        return parsed
+      }
+    }
+    return fallbackNames.map { LynqoDeviceRow(name: $0, subtitle: "") }
   }
 
   private static func intValue(_ value: Any?) -> Int? {
@@ -173,14 +190,11 @@ struct LynqoEntry: TimelineEntry {
 
 struct LynqoProvider: TimelineProvider {
   func placeholder(in context: Context) -> LynqoEntry {
-    LynqoEntry(date: Date(), snapshot: .preview)
+    LynqoEntry(date: Date(), snapshot: .empty)
   }
 
   func getSnapshot(in context: Context, completion: @escaping (LynqoEntry) -> Void) {
-    let loaded = LynqoSnapshot.load()
-    let snapshot =
-      context.isPreview && loaded.updatedAt.isEmpty ? LynqoSnapshot.preview : loaded
-    completion(LynqoEntry(date: Date(), snapshot: snapshot))
+    completion(LynqoEntry(date: Date(), snapshot: LynqoSnapshot.load()))
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<LynqoEntry>) -> Void) {
@@ -226,7 +240,7 @@ private let ringArcFraction: CGFloat = 0.94
 
 // Home widget typography — sync conceptually with LynqoWidgetTheme home styles in Flutter preview.
 private enum LynqoHomeTypography {
-  static let metricValueSize: CGFloat = 16
+  static let metricValueSize: CGFloat = 15
   static let metricLabelSize: CGFloat = 12
   static let actionLabelSize: CGFloat = 12
   static let smallBatteryPercentSize: CGFloat = 32
@@ -234,12 +248,15 @@ private enum LynqoHomeTypography {
   static let smallBatteryKerning: CGFloat = 0.41
   static let ringStrokeWidth: CGFloat = 3
   static let ringToValueSpacing: CGFloat = 8
-  static let valueToLabelSpacing: CGFloat = 4
-  static let metricPrimaryLineHeight: CGFloat = 21
-  static let metricSecondaryLineHeight: CGFloat = 32
-  static let decorativeRingProgress: Double = 1
+  static let valueToLabelSpacing: CGFloat = 2
+  static let metricPrimaryLineHeight: CGFloat = 18
+  static let metricSecondaryLineHeight: CGFloat = 28
+  static let mediumHomeRingRowHeight: CGFloat = 60
+  /// Full-circle grey track only (devices, restart).
+  static let trackOnlyRingProgress: Double = 0
+  static let mediumHomeColumnSpacing: CGFloat = 14
   static let mediumHomePaddingH: CGFloat = 16
-  static let mediumHomePaddingV: CGFloat = 16
+  static let mediumHomePaddingV: CGFloat = 12
 }
 
 enum LynqoMetricPrimaryStyle {
@@ -251,7 +268,7 @@ struct LynqoWidgetRing: View {
   let tokens: LynqoTokens
   let progress: Double
   let diameter: CGFloat
-  let systemIcon: String
+  var systemIcon: String? = nil
   var strokeWidth: CGFloat = LynqoHomeTypography.ringStrokeWidth
   var accentColor: Color?
   var fullCircle: Bool = false
@@ -277,9 +294,11 @@ struct LynqoWidgetRing: View {
           )
           .rotationEffect(.degrees(-90))
       }
-      Image(systemName: systemIcon)
-        .font(.system(size: diameter * 0.38, weight: .regular))
-        .foregroundStyle(tokens.secondaryText)
+      if let systemIcon {
+        Image(systemName: systemIcon)
+          .font(.system(size: diameter * 0.38, weight: .regular))
+          .foregroundStyle(tokens.secondaryText)
+      }
     }
     .frame(width: diameter, height: diameter)
   }
@@ -288,22 +307,29 @@ struct LynqoWidgetRing: View {
 struct LynqoMetricColumn: View {
   let tokens: LynqoTokens
   let progress: Double
-  let systemIcon: String
+  var systemIcon: String? = nil
   let primary: String
   let secondary: String
   var primaryStyle: LynqoMetricPrimaryStyle = .metricValue
-  var ringDiameter: CGFloat = 52
+  var ringDiameter: CGFloat = 60
   var fullCircle: Bool = false
+  var accentColor: Color?
 
   var body: some View {
     VStack(spacing: LynqoHomeTypography.ringToValueSpacing) {
-      LynqoWidgetRing(
-        tokens: tokens,
-        progress: progress,
-        diameter: ringDiameter,
-        systemIcon: systemIcon,
-        fullCircle: fullCircle
-      )
+      HStack {
+        Spacer(minLength: 0)
+        LynqoWidgetRing(
+          tokens: tokens,
+          progress: progress,
+          diameter: ringDiameter,
+          systemIcon: systemIcon,
+          accentColor: accentColor,
+          fullCircle: fullCircle
+        )
+        Spacer(minLength: 0)
+      }
+      .frame(height: LynqoHomeTypography.mediumHomeRingRowHeight)
       VStack(spacing: LynqoHomeTypography.valueToLabelSpacing) {
         Text(primary)
           .font(primaryFont)
@@ -311,17 +337,21 @@ struct LynqoMetricColumn: View {
           .foregroundStyle(tokens.primaryText)
           .lineLimit(1)
           .minimumScaleFactor(0.65)
-          .frame(height: LynqoHomeTypography.metricPrimaryLineHeight)
-        Text(secondary)
-          .font(.system(size: LynqoHomeTypography.metricLabelSize, weight: .regular))
-          .foregroundStyle(tokens.secondaryText)
-          .lineLimit(2)
-          .minimumScaleFactor(0.8)
+          .frame(maxWidth: .infinity)
           .multilineTextAlignment(.center)
-          .frame(
-            height: LynqoHomeTypography.metricSecondaryLineHeight,
-            alignment: .top
-          )
+          .frame(height: LynqoHomeTypography.metricPrimaryLineHeight)
+        if !secondary.isEmpty {
+          Text(secondary)
+            .font(.system(size: LynqoHomeTypography.metricLabelSize, weight: .regular))
+            .foregroundStyle(tokens.secondaryText)
+            .lineLimit(2)
+            .minimumScaleFactor(0.8)
+            .multilineTextAlignment(.center)
+            .frame(
+              height: LynqoHomeTypography.metricSecondaryLineHeight,
+              alignment: .top
+            )
+        }
       }
     }
     .frame(maxWidth: .infinity)
@@ -330,7 +360,7 @@ struct LynqoMetricColumn: View {
   private var primaryFont: Font {
     switch primaryStyle {
     case .metricValue:
-      return .system(size: LynqoHomeTypography.metricValueSize, weight: .medium)
+      return .system(size: LynqoHomeTypography.metricValueSize, weight: .regular)
     case .actionLabel:
       return .system(size: LynqoHomeTypography.actionLabelSize, weight: .medium)
     }
@@ -418,7 +448,8 @@ struct LynqoSmallWidgetView: View {
           tokens: tokens,
           progress: snapshot.batteryProgress,
           diameter: ringSize,
-          systemIcon: snapshot.batteryCharging ? "bolt.fill" : "battery.100"
+          systemIcon: snapshot.batteryCharging ? "bolt.fill" : "battery.100",
+          accentColor: snapshot.batteryAccentColor
         )
         Spacer(minLength: 8)
         Text(percentLabel)
@@ -451,19 +482,21 @@ struct LynqoMediumWidgetView: View {
   let snapshot: LynqoSnapshot
   let tokens: LynqoTokens
 
-  private let ringSize: CGFloat = 52
+  private let ringSize: CGFloat = 60
 
   var body: some View {
     VStack(spacing: 0) {
       Spacer(minLength: 0)
-      HStack(alignment: .top, spacing: 0) {
+      HStack(alignment: .top, spacing: LynqoHomeTypography.mediumHomeColumnSpacing) {
         LynqoMetricColumn(
           tokens: tokens,
           progress: snapshot.batteryProgress,
           systemIcon: snapshot.batteryCharging ? "bolt.fill" : "battery.100",
           primary: snapshot.batteryPrimaryLabel,
-          secondary: "Battery",
-          ringDiameter: ringSize
+          secondary: "",
+          ringDiameter: ringSize,
+          fullCircle: true,
+          accentColor: snapshot.batteryAccentColor
         )
         LynqoMetricColumn(
           tokens: tokens,
@@ -471,14 +504,15 @@ struct LynqoMediumWidgetView: View {
           systemIcon: "arrow.up.arrow.down",
           primary: snapshot.dataPrimaryLabel,
           secondary: snapshot.dataSecondaryLabel,
-          ringDiameter: ringSize
+          ringDiameter: ringSize,
+          fullCircle: true
         )
         LynqoMetricColumn(
           tokens: tokens,
-          progress: LynqoHomeTypography.decorativeRingProgress,
+          progress: LynqoHomeTypography.trackOnlyRingProgress,
           systemIcon: "laptopcomputer.and.iphone",
           primary: snapshot.devicesPrimaryLabel,
-          secondary: "Devices",
+          secondary: "",
           ringDiameter: ringSize,
           fullCircle: true
         )
@@ -496,7 +530,7 @@ struct LynqoMediumWidgetView: View {
       Link(destination: URL(string: rebootDeepLink)!) {
         LynqoMetricColumn(
           tokens: tokens,
-          progress: LynqoHomeTypography.decorativeRingProgress,
+          progress: LynqoHomeTypography.trackOnlyRingProgress,
           systemIcon: "power",
           primary: "Restart",
           secondary: snapshot.restartSecondaryLabel,
@@ -508,7 +542,7 @@ struct LynqoMediumWidgetView: View {
     } else {
       LynqoMetricColumn(
         tokens: tokens,
-        progress: LynqoHomeTypography.decorativeRingProgress,
+        progress: LynqoHomeTypography.trackOnlyRingProgress,
         systemIcon: "power",
         primary: "Restart",
         secondary: "Open Lynqo",
@@ -529,9 +563,8 @@ struct LynqoWidgetRootView: View {
 }
 
 // WidgetKit caches aggressively; bump [kind] when layouts change so the gallery picks up new binaries.
-@main
-struct LynqoWidget: Widget {
-  let kind: String = "LynqoMiFiHomeWidget6"
+struct LynqoMiFiHomeWidget: Widget {
+  let kind: String = "LynqoMiFiHomeWidget11"
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: LynqoProvider()) { entry in
@@ -552,25 +585,25 @@ struct LynqoWidget: Widget {
   }
 }
 
-private struct LynqoWidgetBackground: View {
+@main
+struct LynqoWidgetBundle: WidgetBundle {
+  var body: some Widget {
+    LynqoMiFiHomeWidget()
+    LynqoMiFiDevicesWidget()
+  }
+}
+
+struct LynqoWidgetBackground: View {
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     let tokens = LynqoTokens.resolve(colorScheme)
-    let fill = tokens.surface.opacity(colorScheme == .dark ? 0.78 : 0.82)
-    ZStack {
-      if colorScheme == .dark {
-        Color(red: 0.24, green: 0.27, blue: 0.27)
-      } else {
-        Color(red: 0.94, green: 0.96, blue: 0.98)
-      }
-      ContainerRelativeShape()
-        .fill(fill)
-    }
+    ContainerRelativeShape()
+      .fill(tokens.surface)
   }
 }
 
-private struct LynqoWidgetBackgroundLegacy: View {
+struct LynqoWidgetBackgroundLegacy: View {
   @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {

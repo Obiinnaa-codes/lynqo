@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../sizing/lynqo_widget_dimensions.dart';
-import '../sizing/lynqo_widget_size.dart';
 import '../theme/lynqo_widget_theme.dart';
 import 'lynqo_metric_ring.dart';
 import 'lynqo_metric_widget.dart';
@@ -11,22 +10,23 @@ import 'lynqo_widget_icon.dart';
 class LynqoRestartAction extends StatelessWidget {
   const LynqoRestartAction({
     super.key,
-    required this.routerLabel,
     this.onTap,
     this.isLoading = false,
+    this.ringDiameter,
     this.ringSpacing = LynqoWidgetDimensions.mediumHomeMetricRingSpacing,
   });
 
-  final String routerLabel;
   final VoidCallback? onTap;
   final bool isLoading;
+  final double? ringDiameter;
   final double ringSpacing;
 
   @override
   Widget build(BuildContext context) {
     final theme = LynqoWidgetTheme.of(context);
-    final iconSize =
-        LynqoWidgetDimensions.ringDiameter(LynqoWidgetSize.medium) * 0.38;
+    final resolvedDiameter =
+        ringDiameter ?? LynqoWidgetDimensions.mediumHomeRingDiameter;
+    final iconSize = resolvedDiameter * 0.38;
 
     return Semantics(
       button: true,
@@ -39,7 +39,8 @@ class LynqoRestartAction extends StatelessWidget {
           child: LynqoMetricWidget(
             ringSpacing: ringSpacing,
             ring: LynqoMetricRing(
-              progress: LynqoWidgetDimensions.mediumHomeDecorativeRingProgress,
+              diameter: resolvedDiameter,
+              progress: LynqoWidgetDimensions.mediumHomeTrackOnlyRingProgress,
               fullCircle: true,
               center: isLoading
                   ? SizedBox(
@@ -57,7 +58,7 @@ class LynqoRestartAction extends StatelessWidget {
                     ),
             ),
             primaryValue: 'Restart',
-            secondaryLabel: routerLabel,
+            secondaryLabel: '',
           ),
         ),
       ),

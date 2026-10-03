@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "lynqo",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart"
+    },
+    {
+      "name": "Att WiFi probe (flutter run)",
+      "request": "launch",
+      "type": "dart",
+      "program": "tool/att_wifi_dio_probe.dart"
+    }
+  ]
+}

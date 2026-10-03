@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		A1B2C3D41E833CAA004F5971 /* LynqoWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D51E833CAA004F5972 /* LynqoWidget.swift */; };
+		B2C3D4E61E833CAA004F5981 /* LynqoDevicesWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E51E833CAA004F5981 /* LynqoDevicesWidget.swift */; };
 		A1B2C3D71E833CAA004F5974 /* LynqoWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = A1B2C3D61E833CAA004F5973 /* LynqoWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
@@ -80,6 +81,7 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A1B2C3D51E833CAA004F5972 /* LynqoWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LynqoWidget.swift; sourceTree = "<group>"; };
+		B2C3D4E51E833CAA004F5981 /* LynqoDevicesWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LynqoDevicesWidget.swift; sourceTree = "<group>"; };
 		A1B2C3D61E833CAA004F5973 /* LynqoWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LynqoWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1B2C3DC1E833CAA004F5979 /* LynqoWidgetExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LynqoWidgetExtension.entitlements; sourceTree = "<group>"; };
 		A1B2C3DD1E833CAA004F597A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -129,6 +131,7 @@
 			isa = PBXGroup;
 			children = (
 				A1B2C3D51E833CAA004F5972 /* LynqoWidget.swift */,
+				B2C3D4E51E833CAA004F5981 /* LynqoDevicesWidget.swift */,
 				A1B2C3DD1E833CAA004F597A /* Info.plist */,
 			);
 			path = LynqoWidget;
@@ -349,6 +352,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1B2C3D41E833CAA004F5971 /* LynqoWidget.swift in Sources */,
+				B2C3D4E61E833CAA004F5981 /* LynqoDevicesWidget.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

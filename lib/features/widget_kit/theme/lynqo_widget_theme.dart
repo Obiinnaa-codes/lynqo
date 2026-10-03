@@ -117,13 +117,13 @@ class LynqoWidgetTheme extends ThemeExtension<LynqoWidgetTheme> {
     );
   }
 
-  /// iOS home widget metric values (Flutter preview parity).
+  /// iOS home widget metric values (Batteries medium — value under ring).
   TextStyle homeMetricValueStyle() {
     return TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.w500,
-      letterSpacing: -0.31,
-      height: 1.31,
+      fontSize: 15,
+      fontWeight: FontWeight.w400,
+      letterSpacing: -0.24,
+      height: 1.2,
       color: primaryText,
     );
   }

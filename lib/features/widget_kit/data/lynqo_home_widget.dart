@@ -10,8 +10,10 @@ import '../domain/lynqo_router_widget_snapshot_json.dart';
 abstract final class LynqoHomeWidget {
   static const appGroupId = 'group.com.example.lynqo';
   static const snapshotKey = 'lynqo_widget_snapshot_v1';
-  /// Must match `kind` in ios/LynqoWidget/LynqoWidget.swift (`LynqoMiFiHomeWidget3`).
-  static const iOSWidgetKind = 'LynqoMiFiHomeWidget3';
+  /// Must match `kind` on `LynqoMiFiHomeWidget` in ios/LynqoWidget/LynqoWidget.swift.
+  static const iOSHomeWidgetKind = 'LynqoMiFiHomeWidget11';
+  /// Must match `kind` on `LynqoMiFiDevicesWidget` in ios/LynqoWidget/LynqoDevicesWidget.swift.
+  static const iOSDevicesWidgetKind = 'LynqoMiFiDevicesWidget1';
   /// `homeWidget` query param required by the home_widget iOS plugin.
   static const rebootDeepLink = 'lynqo://reboot?homeWidget';
 
@@ -28,7 +30,8 @@ abstract final class LynqoHomeWidget {
     }
     final json = jsonEncode(snapshot.toJson());
     await HomeWidget.saveWidgetData(snapshotKey, json);
-    await HomeWidget.updateWidget(iOSName: iOSWidgetKind);
+    await HomeWidget.updateWidget(iOSName: iOSHomeWidgetKind);
+    await HomeWidget.updateWidget(iOSName: iOSDevicesWidgetKind);
   }
 
   static Future<void> clearSnapshot() async {
@@ -36,6 +39,7 @@ abstract final class LynqoHomeWidget {
       return;
     }
     await HomeWidget.saveWidgetData<String>(snapshotKey, null);
-    await HomeWidget.updateWidget(iOSName: iOSWidgetKind);
+    await HomeWidget.updateWidget(iOSName: iOSHomeWidgetKind);
+    await HomeWidget.updateWidget(iOSName: iOSDevicesWidgetKind);
   }
 }

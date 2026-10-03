@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lynqo/features/widget_kit/domain/lynqo_router_widget_snapshot.dart';
 import 'package:lynqo/features/widget_kit/domain/models/widget_view_models.dart';
 import 'package:lynqo/features/widget_kit/presentation/lynqo_medium_mifi_presentation.dart';
+import 'package:lynqo/features/widget_kit/theme/lynqo_widget_colors.dart';
 import 'package:lynqo/features/widget_kit/theme/lynqo_widget_theme.dart';
 import 'package:lynqo/features/widget_kit/widgets/lynqo_medium_mifi_widget.dart';
 
@@ -93,6 +94,20 @@ void main() {
     expect(LynqoMediumMiFiPresentation.batteryPrimary(snapshot), '94%');
   });
 
+  test('battery ring is green at 100%', () {
+    final snapshot = synced(batteryPercent: 100);
+    expect(
+      LynqoMediumMiFiPresentation.batteryProgressColor(snapshot),
+      LynqoWidgetColors.accentGreen,
+    );
+    expect(
+      LynqoMediumMiFiPresentation.batteryProgressColor(
+        synced(batteryPercent: 94),
+      ),
+      isNull,
+    );
+  });
+
   testWidgets('medium home widget shows four metric labels', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -115,10 +130,10 @@ void main() {
     expect(find.text('12.4 GB'), findsOneWidget);
     expect(find.text('of 50 GB'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
-    expect(find.text('Battery'), findsOneWidget);
-    expect(find.text('Devices'), findsOneWidget);
     expect(find.text('Restart'), findsOneWidget);
-    expect(find.text('MiFi'), findsOneWidget);
+    expect(find.text('Battery'), findsNothing);
+    expect(find.text('Devices'), findsNothing);
+    expect(find.text('MiFi'), findsNothing);
   });
 
   testWidgets('unsynced snapshot shows dashes not mock percents', (tester) async {

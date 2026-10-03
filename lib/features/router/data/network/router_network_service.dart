@@ -165,7 +165,7 @@ class RouterNetworkService {
   }) async {
     try {
       if (!followRedirects) {
-        return _getWithoutRedirectFollow(
+        return await _getWithoutRedirectFollow(
           path,
           queryParameters: queryParameters,
           cookieHeader: cookieHeader,

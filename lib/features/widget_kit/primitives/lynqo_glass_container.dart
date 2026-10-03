@@ -1,11 +1,9 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../sizing/lynqo_widget_dimensions.dart';
 import '../theme/lynqo_widget_theme.dart';
 
-/// Frosted card for the medium home-widget composite.
+/// Opaque widget surface for medium home layout (iOS Batteries-style card).
 class LynqoGlassContainer extends StatelessWidget {
   const LynqoGlassContainer({
     super.key,
@@ -13,7 +11,7 @@ class LynqoGlassContainer extends StatelessWidget {
     this.width,
     this.height,
     EdgeInsetsGeometry? padding,
-  }) : padding = padding ?? const EdgeInsets.all(16);
+  }) : padding = padding ?? LynqoWidgetDimensions.mediumHomeContentPadding;
 
   final Widget child;
   final double? width;
@@ -24,35 +22,17 @@ class LynqoGlassContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = LynqoWidgetTheme.of(context);
     final radius = LynqoWidgetDimensions.surfaceRadius;
-    final fill = theme.surfaceColor.withValues(
-      alpha: theme.isDark ? 0.78 : 0.82,
-    );
-    final borderColor = theme.dividerColor.withValues(
-      alpha: theme.isDark ? 0.28 : 0.4,
-    );
 
     return Container(
       width: width,
       height: height,
+      padding: padding,
       decoration: BoxDecoration(
+        color: theme.surfaceColor,
         borderRadius: BorderRadius.circular(radius),
-        boxShadow: theme.surfaceShadow,
-        border: Border.all(color: borderColor, width: 0.5),
       ),
       clipBehavior: Clip.antiAlias,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          width: width,
-          height: height,
-          padding: padding,
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(radius),
-          ),
-          child: child,
-        ),
-      ),
+      child: child,
     );
   }
 }

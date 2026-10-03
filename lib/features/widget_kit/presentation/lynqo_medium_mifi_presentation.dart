@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart' show IconData, Icons;
+import 'package:flutter/material.dart' show Color, IconData, Icons;
 
 import '../domain/lynqo_router_widget_snapshot.dart';
 import '../domain/models/widget_view_models.dart';
+import '../theme/lynqo_widget_colors.dart';
 
 /// View-model helpers for the medium home widget (no fake metrics).
 abstract final class LynqoMediumMiFiPresentation {
@@ -68,12 +69,15 @@ abstract final class LynqoMediumMiFiPresentation {
     return '$count';
   }
 
-  static String restartSecondary(LynqoRouterWidgetSnapshot snapshot) {
-    final name = snapshot.routerOverview.routerName;
-    if (name.isNotEmpty) {
-      return name;
+  /// Full battery uses system green (reference home widget).
+  static Color? batteryProgressColor(LynqoRouterWidgetSnapshot snapshot) {
+    if (!isSynced(snapshot)) {
+      return null;
     }
-    return 'MiFi';
+    if (snapshot.battery.percent == 100) {
+      return LynqoWidgetColors.accentGreen;
+    }
+    return null;
   }
 
   static IconData batteryIcon(BatteryWidgetData battery) {

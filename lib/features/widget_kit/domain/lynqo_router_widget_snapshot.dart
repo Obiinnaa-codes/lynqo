@@ -22,4 +22,18 @@ class LynqoRouterWidgetSnapshot {
   final ConnectedDevicesWidgetData devices;
   final NetworkSpeedWidgetData networkSpeed;
   final RouterOverviewWidgetData routerOverview;
+
+  /// No dashboard sync yet — home widget and preview unsynced state.
+  factory LynqoRouterWidgetSnapshot.unsynced() {
+    return LynqoRouterWidgetSnapshot(
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      battery: const BatteryWidgetData(),
+      dataUsage: const DataUsageWidgetData(),
+      signal: const SignalWidgetData(),
+      connection: const ConnectionWidgetData(),
+      devices: const ConnectedDevicesWidgetData(),
+      networkSpeed: const NetworkSpeedWidgetData(),
+      routerOverview: const RouterOverviewWidgetData(routerName: 'MiFi'),
+    );
+  }
 }

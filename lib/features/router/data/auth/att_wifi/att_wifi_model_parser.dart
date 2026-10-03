@@ -17,10 +17,9 @@ abstract final class AttWifiModelParser {
     }
 
     final batteryPercent = _intFromPaths(decoded, _batteryPercentPaths);
-    final chargingRaw = _stringFromPaths(decoded, _batteryStatusPaths);
-    final isCharging = _parseCharging(
-      _stringFromPaths(decoded, _chargingFlagPaths) ?? chargingRaw,
-    );
+    final batteryStatusLabel =
+        _stringFromPaths(decoded, _batteryStatusLabelPaths);
+    final isCharging = _resolveIsCharging(decoded);
 
     final signalBars = _intFromPaths(decoded, _signalBarsPaths);
     final signalRsrp = _intFromPaths(decoded, _signalRsrpPaths);
@@ -103,7 +102,7 @@ abstract final class AttWifiModelParser {
     return RouterStatus(
       batteryPercent: batteryPercent,
       isCharging: isCharging,
-      batteryStatusLabel: chargingRaw,
+      batteryStatusLabel: batteryStatusLabel,
       powerState: _stringFromPaths(decoded, _powerStatePaths),
       batteryTemperatureC: _intFromPaths(decoded, _batteryTemperaturePaths),
       signalStrength: signalBars,
@@ -465,6 +464,56 @@ abstract final class AttWifiModelParser {
     return used;
   }
 
+  /// Matches Netgear AirCard UI: `power.charging`, status strings, then
+  /// `power.battChargeSource` (`None` = on battery, anything else = plugged in).
+  static bool? _resolveIsCharging(Map<String, dynamic> decoded) {
+    final fromFlag = _parseChargingField(
+      _readPath(decoded, _chargingFlagPaths.first),
+    );
+    if (fromFlag != null) {
+      return fromFlag;
+    }
+
+    for (final path in const [
+      ['power', 'battChargeStatus'],
+      ['power', 'batteryState'],
+    ]) {
+      final parsed = _parseCharging(_stringFromPaths(decoded, [path]));
+      if (parsed != null) {
+        return parsed;
+      }
+    }
+
+    return _parseChargingFromSource(
+      _stringFromPaths(decoded, _batteryChargeSourcePaths),
+    );
+  }
+
+  static bool? _parseChargingField(Object? value) {
+    if (value == null) {
+      return null;
+    }
+    final asBool = _parseBool(value);
+    if (asBool != null) {
+      return asBool;
+    }
+    return _parseCharging(value.toString());
+  }
+
+  static bool? _parseChargingFromSource(String? source) {
+    if (source == null || source.isEmpty) {
+      return null;
+    }
+    final lower = source.trim().toLowerCase();
+    if (lower == 'none' || lower == 'off' || lower == 'no') {
+      return false;
+    }
+    if (lower == 'unknown') {
+      return null;
+    }
+    return true;
+  }
+
   static bool? _parseCharging(String? raw) {
     if (raw == null || raw.isEmpty) {
       return null;
@@ -483,6 +532,9 @@ abstract final class AttWifiModelParser {
       return true;
     }
     if (lower.contains('not charg') || lower == 'off') {
+      return false;
+    }
+    if (lower == 'none') {
       return false;
     }
     return null;
@@ -587,9 +639,13 @@ abstract final class AttWifiModelParser {
     ['power', 'battChargeLevel'],
   ];
 
-  static const _batteryStatusPaths = [
+  static const _batteryStatusLabelPaths = [
     ['power', 'battChargeStatus'],
     ['power', 'batteryState'],
+    ['power', 'battChargeSource'],
+  ];
+
+  static const _batteryChargeSourcePaths = [
     ['power', 'battChargeSource'],
   ];
 

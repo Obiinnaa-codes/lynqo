@@ -4,17 +4,24 @@ import 'lynqo_widget_size.dart';
 
 /// Single source of truth for widget kit layout metrics.
 abstract final class LynqoWidgetDimensions {
-  static const double surfaceRadius = 26;
+  static const double surfaceRadius = 28;
 
   /// Medium home composite — keep in sync with `LynqoMediumWidgetView` in LynqoWidget.swift.
-  static const EdgeInsets mediumHomeContentPadding = EdgeInsets.all(16);
+  /// Batteries medium widget — sync with LynqoHomeTypography in LynqoWidget.swift.
+  static const EdgeInsets mediumHomeContentPadding =
+      EdgeInsets.fromLTRB(16, 12, 16, 12);
+  static const double mediumHomeRingDiameter = 60;
+  static const double mediumHomeRingRowHeight = 60;
+  /// Horizontal gap between medium home ring columns (Batteries-style).
+  static const double mediumHomeColumnSpacing = 14;
+  /// Gap from ring bottom to primary label (Batteries medium).
   static const double mediumHomeMetricRingSpacing = 8;
-  static const double mediumHomeMetricLabelSpacing = 4;
+  static const double mediumHomeMetricLabelSpacing = 2;
   /// Fixed slots so primary/secondary lines align across medium home columns.
-  static const double mediumHomeMetricPrimaryLineHeight = 21;
-  static const double mediumHomeMetricSecondaryLineHeight = 32;
-  /// Decorative full rings (devices, restart) — sync with medium home Swift widget.
-  static const double mediumHomeDecorativeRingProgress = 1;
+  static const double mediumHomeMetricPrimaryLineHeight = 18;
+  static const double mediumHomeMetricSecondaryLineHeight = 28;
+  /// Full-circle track with no accent fill (devices, restart) — sync with Swift.
+  static const double mediumHomeTrackOnlyRingProgress = 0;
   /// Keep in sync with `LynqoHomeTypography.ringStrokeWidth` in LynqoWidget.swift.
   static const double homeMetricRingStrokeWidth = 3;
 
@@ -45,7 +52,7 @@ abstract final class LynqoWidgetDimensions {
       case LynqoWidgetSize.small:
         return 56;
       case LynqoWidgetSize.medium:
-        return 52;
+        return mediumHomeRingDiameter;
       case LynqoWidgetSize.large:
         return 72;
     }

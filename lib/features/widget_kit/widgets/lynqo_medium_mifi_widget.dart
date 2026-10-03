@@ -8,7 +8,6 @@ import '../primitives/lynqo_metric_widget.dart';
 import '../primitives/lynqo_restart_action.dart';
 import '../primitives/lynqo_widget_icon.dart';
 import '../sizing/lynqo_widget_dimensions.dart';
-import '../sizing/lynqo_widget_size.dart';
 
 /// iOS systemMedium home widget layout (Flutter parity + preview).
 class LynqoMediumMiFiWidget extends StatelessWidget {
@@ -29,9 +28,10 @@ class LynqoMediumMiFiWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ringSize = LynqoWidgetDimensions.ringDiameter(LynqoWidgetSize.medium);
+    final ringSize = LynqoWidgetDimensions.mediumHomeRingDiameter;
     final iconSize = ringSize * 0.38;
     final ringSpacing = LynqoWidgetDimensions.mediumHomeMetricRingSpacing;
+    final columnGap = LynqoWidgetDimensions.mediumHomeColumnSpacing;
     final battery = snapshot.battery;
     final batteryProgress =
         LynqoMediumMiFiPresentation.batteryProgress(snapshot) ?? 0;
@@ -52,7 +52,13 @@ class LynqoMediumMiFiWidget extends StatelessWidget {
                 LynqoMetricWidget(
                   ringSpacing: ringSpacing,
                   ring: LynqoMetricRing(
+                    diameter: ringSize,
                     progress: batteryProgress,
+                    fullCircle: true,
+                    progressColor:
+                        LynqoMediumMiFiPresentation.batteryProgressColor(
+                      snapshot,
+                    ),
                     center: LynqoWidgetIcon(
                       icon: LynqoMediumMiFiPresentation.batteryIcon(battery),
                       size: iconSize,
@@ -61,14 +67,17 @@ class LynqoMediumMiFiWidget extends StatelessWidget {
                   ),
                   primaryValue:
                       LynqoMediumMiFiPresentation.batteryPrimary(snapshot),
-                  secondaryLabel: 'Battery',
+                  secondaryLabel: '',
                 ),
               ),
+              SizedBox(width: columnGap),
               _metricColumn(
                 LynqoMetricWidget(
                   ringSpacing: ringSpacing,
                   ring: LynqoMetricRing(
+                    diameter: ringSize,
                     progress: dataProgress,
+                    fullCircle: true,
                     center: LynqoWidgetIcon(
                       icon: Icons.swap_vert,
                       size: iconSize,
@@ -81,12 +90,14 @@ class LynqoMediumMiFiWidget extends StatelessWidget {
                       LynqoMediumMiFiPresentation.dataSecondary(snapshot),
                 ),
               ),
+              SizedBox(width: columnGap),
               _metricColumn(
                 LynqoMetricWidget(
                   ringSpacing: ringSpacing,
                   ring: LynqoMetricRing(
+                    diameter: ringSize,
                     progress:
-                        LynqoWidgetDimensions.mediumHomeDecorativeRingProgress,
+                        LynqoWidgetDimensions.mediumHomeTrackOnlyRingProgress,
                     fullCircle: true,
                     center: LynqoWidgetIcon(
                       icon: Icons.devices_outlined,
@@ -96,13 +107,13 @@ class LynqoMediumMiFiWidget extends StatelessWidget {
                   ),
                   primaryValue:
                       LynqoMediumMiFiPresentation.devicesPrimary(snapshot),
-                  secondaryLabel: 'Devices',
+                  secondaryLabel: '',
                 ),
               ),
+              SizedBox(width: columnGap),
               _metricColumn(
                 LynqoRestartAction(
-                  routerLabel:
-                      LynqoMediumMiFiPresentation.restartSecondary(snapshot),
+                  ringDiameter: ringSize,
                   onTap: onRestartTap,
                   isLoading: isRestartLoading,
                   ringSpacing: ringSpacing,

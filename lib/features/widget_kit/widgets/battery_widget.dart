@@ -9,6 +9,7 @@ import '../primitives/lynqo_widget_typography.dart';
 import '../sizing/lynqo_widget_dimensions.dart';
 import '../sizing/lynqo_widget_size.dart';
 import '../theme/lynqo_widget_theme.dart';
+import '../theme/lynqo_widget_colors.dart';
 
 class BatteryWidget extends StatelessWidget {
   const BatteryWidget({
@@ -26,6 +27,8 @@ class BatteryWidget extends StatelessWidget {
     final progress = data.progress ?? 0;
     final percentLabel =
         data.percent == null ? '—' : '${data.percent}%';
+    final ringColor =
+        data.percent == 100 ? LynqoWidgetColors.accentGreen : null;
 
     return LynqoWidgetSurface(
       size: size,
@@ -34,11 +37,13 @@ class BatteryWidget extends StatelessWidget {
           theme: theme,
           progress: progress,
           percentLabel: percentLabel,
+          progressColor: ringColor,
         ),
         LynqoWidgetSize.medium => _MediumLayout(
           theme: theme,
           progress: progress,
           percentLabel: percentLabel,
+          progressColor: ringColor,
           data: data,
         ),
         LynqoWidgetSize.large => _LargeLayout(
@@ -56,11 +61,13 @@ class _SmallLayout extends StatelessWidget {
     required this.theme,
     required this.progress,
     required this.percentLabel,
+    this.progressColor,
   });
 
   final LynqoWidgetTheme theme;
   final double progress;
   final String percentLabel;
+  final Color? progressColor;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +78,7 @@ class _SmallLayout extends StatelessWidget {
         LynqoWidgetRing(
           progress: progress,
           diameter: ring,
+          progressColor: progressColor,
           center: LynqoWidgetIcon(
             icon: Icons.battery_std_outlined,
             size: 22,
@@ -93,12 +101,14 @@ class _MediumLayout extends StatelessWidget {
     required this.theme,
     required this.progress,
     required this.percentLabel,
+    this.progressColor,
     required this.data,
   });
 
   final LynqoWidgetTheme theme;
   final double progress;
   final String percentLabel;
+  final Color? progressColor;
   final BatteryWidgetData data;
 
   @override
@@ -112,6 +122,7 @@ class _MediumLayout extends StatelessWidget {
             LynqoWidgetRing(
               progress: progress,
               diameter: ring,
+              progressColor: progressColor,
               center: LynqoWidgetIcon(
                 icon: Icons.battery_std_outlined,
                 size: 20,

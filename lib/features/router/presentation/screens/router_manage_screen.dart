@@ -110,7 +110,7 @@ class _WifiSection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: Text(
-                '${band.bandLabel ?? 'Band'} · ${band.ssid ?? '—'} · ${band.status ?? '—'}',
+                '${band.bandLabel} · ${band.ssid ?? '—'} · ${band.status ?? '—'}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),

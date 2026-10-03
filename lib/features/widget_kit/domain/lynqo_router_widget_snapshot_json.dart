@@ -34,6 +34,15 @@ extension LynqoRouterWidgetSnapshotJson on LynqoRouterWidgetSnapshot {
       'devices': {
         'count': devices.count,
         'names': devices.devices.map((d) => d.name).toList(),
+        'items': devices.devices
+            .map(
+              (d) => {
+                'name': d.name,
+                if (d.subtitle != null && d.subtitle!.isNotEmpty)
+                  'subtitle': d.subtitle,
+              },
+            )
+            .toList(),
       },
       'networkSpeed': {
         'downloadMbps': networkSpeed.downloadMbps,

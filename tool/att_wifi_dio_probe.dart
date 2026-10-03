@@ -1,8 +1,15 @@
 /// Dev-only AT&T WiFi Manager HTTP probe using the same Dio stack as the app.
 ///
-/// Run on a device/emulator attached to the MiFi network:
+/// **Do not use `dart run` on this file.** That compiles for the Dart VM (no
+/// `dart:ui`), which produces hundreds of bogus errors in Flutter SDK sources
+/// (`Size`, `Offset`, `Color`, `TextBaseline` "isn't a type", etc.). Always use
+/// the Flutter tool:
 ///
 ///   flutter run -t tool/att_wifi_dio_probe.dart -d <device_id>
+///
+/// Or the IDE launch config **Att WiFi probe (flutter run)** in `.vscode/launch.json`.
+///
+/// Run on a device/emulator attached to the MiFi network:
 ///
 /// Optional password for real login POST (value never logged):
 ///   ATT_WIFI_PROBE_PASSWORD via shell export — visible to [Platform.environment]

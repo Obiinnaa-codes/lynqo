@@ -55,6 +55,35 @@ void main() {
     expect(AttWifiModelParser.formatDataVolume(1024), '1024 B');
   });
 
+  test('infers charging from battChargeSource when flag is omitted', () {
+    const body = '''
+{
+  "power": {
+    "battChargeLevel": 100,
+    "battChargeSource": "QuickCharge",
+    "PMState": "Online"
+  }
+}
+''';
+    final status = AttWifiModelParser.parse(body);
+    expect(status.isCharging, isTrue);
+    expect(status.batteryStatusLabel, 'QuickCharge');
+  });
+
+  test('battChargeSource None means not charging', () {
+    const body = '''
+{
+  "power": {
+    "battChargeLevel": 80,
+    "battChargeSource": "None",
+    "PMState": "Online"
+  }
+}
+''';
+    final status = AttWifiModelParser.parse(body);
+    expect(status.isCharging, isFalse);
+  });
+
   test('uses session rx+tx when billing limit is unavailable', () {
     final body = File('test/fixtures/att_wifi/model_data_unavailable.json')
         .readAsStringSync();
@@ -64,5 +93,6 @@ void main() {
     expect(status.dataUsageBytes, 79272346);
     expect(status.dataUsedSummary, '75.6 MB');
     expect(status.dataUsagePercent, isNull);
+    expect(status.isCharging, isNull);
   });
 }

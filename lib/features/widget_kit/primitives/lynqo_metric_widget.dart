@@ -42,7 +42,10 @@ class LynqoMetricWidget extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          ring,
+          SizedBox(
+            height: LynqoWidgetDimensions.mediumHomeRingRowHeight,
+            child: Center(child: ring),
+          ),
           SizedBox(height: ringSpacing),
           SizedBox(
             height: LynqoWidgetDimensions.mediumHomeMetricPrimaryLineHeight,
@@ -56,20 +59,22 @@ class LynqoMetricWidget extends StatelessWidget {
               ),
             ),
           ),
-          SizedBox(height: labelSpacing),
-          SizedBox(
-            height: LynqoWidgetDimensions.mediumHomeMetricSecondaryLineHeight,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: Text(
-                secondaryLabel,
-                style: theme.homeMetricLabelStyle(),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
+          if (secondaryLabel.isNotEmpty) ...[
+            SizedBox(height: labelSpacing),
+            SizedBox(
+              height: LynqoWidgetDimensions.mediumHomeMetricSecondaryLineHeight,
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: Text(
+                  secondaryLabel,
+                  style: theme.homeMetricLabelStyle(),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );
