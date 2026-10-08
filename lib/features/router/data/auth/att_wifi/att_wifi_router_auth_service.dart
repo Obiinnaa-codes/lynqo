@@ -131,6 +131,7 @@ class AttWifiRouterAuthService implements RouterAuthService {
             bootstrapSessionId: activeSessionId,
             client: client,
             loginHttpResponse: loginHttpResponse,
+            password: password,
           ),
           AttWifiLoginInvalidCredentials() => RouterAuthResult(
             state: RouterAuthenticationState.failed,
@@ -173,6 +174,7 @@ class AttWifiRouterAuthService implements RouterAuthService {
   Future<RouterAuthResult> _completeLogin({
     required String bootstrapSessionId,
     required RouterApiClient client,
+    required String password,
     RouterHttpResponse? loginHttpResponse,
   }) async {
     if (kDebugMode && loginHttpResponse != null) {
@@ -221,6 +223,7 @@ class AttWifiRouterAuthService implements RouterAuthService {
 
     final persistedSessionId = jarSessionId ?? bootstrapSessionId;
     await _secureStorage.saveAttWifiSession(sessionId: persistedSessionId);
+    await _secureStorage.saveSignedInPassword(password);
     return RouterAuthResult(
       state: RouterAuthenticationState.authenticated,
       message: 'Signed in.',
@@ -284,7 +287,12 @@ class AttWifiRouterAuthService implements RouterAuthService {
         // Local session is cleared even if the router rejects logout.
       }
     }
+    final rememberAfterLogout =
+        await _secureStorage.isRememberPasswordEnabled();
     await _secureStorage.clearSession();
+    if (!rememberAfterLogout) {
+      await _secureStorage.clearRememberedPassword();
+    }
   }
 
   @override
@@ -301,36 +309,74 @@ class AttWifiRouterAuthService implements RouterAuthService {
     }
 
     final profileId = await _secureStorage.readSessionProfileId();
-    if (profileId != AttWifiAuthSpec.profileId) {
+    if (profileId != null && profileId != AttWifiAuthSpec.profileId) {
       return RouterAuthenticationState.unauthenticated;
     }
 
     final sessionId = await _secureStorage.readAttWifiSessionId();
-    if (sessionId == null || sessionId.isEmpty) {
+    if (sessionId != null && sessionId.isNotEmpty) {
+      try {
+        final model = await _clientFromFactory().fetchAttWifiModel(
+          sessionIdForCookie: sessionId,
+        );
+        final admin = model.statusCode != 401 &&
+            model.statusCode != 403 &&
+            AttWifiSessionParser.userRoleFromModelBody(model.body) ==
+                AttWifiAuthSpec.adminUserRole;
+        if (admin) {
+          return RouterAuthenticationState.authenticated;
+        }
+      } on RouterFailure {
+        final password = await _secureStorage.readSignedInPassword();
+        if (password == null || password.isEmpty) {
+          return RouterAuthenticationState.authenticated;
+        }
+        return _refreshExpiredSession();
+      }
+    }
+
+    return _refreshExpiredSession();
+  }
+
+  @override
+  Future<bool> tryRelogin() async {
+    final password = await _secureStorage.readSignedInPassword();
+    if (password == null || password.isEmpty) {
+      return false;
+    }
+    final result = await login(
+      username: '',
+      password: password,
+      profile: RouterProfileCatalog.attWifi,
+    );
+    return result.state == RouterAuthenticationState.authenticated;
+  }
+
+  Future<RouterAuthenticationState> _refreshExpiredSession() async {
+    final password = await _secureStorage.readSignedInPassword();
+    if (password == null || password.isEmpty) {
       await _secureStorage.clearSession();
       return RouterAuthenticationState.unauthenticated;
     }
 
-    try {
-      final model = await _clientFromFactory().fetchAttWifiModel(
-        sessionIdForCookie: sessionId,
-      );
-      if (model.statusCode == 401 || model.statusCode == 403) {
-        await _secureStorage.clearSession();
-        return RouterAuthenticationState.failed;
-      }
-
-      final role = AttWifiSessionParser.userRoleFromModelBody(model.body);
-      if (role == AttWifiAuthSpec.adminUserRole) {
-        return RouterAuthenticationState.authenticated;
-      }
-
+    final result = await login(
+      username: '',
+      password: password,
+      profile: RouterProfileCatalog.attWifi,
+    );
+    if (result.state == RouterAuthenticationState.authenticated) {
+      return RouterAuthenticationState.authenticated;
+    }
+    if (result.failure is RouterNotReachable ||
+        result.failure is ConnectionTimeout ||
+        result.failure is NetworkUnavailable) {
+      return RouterAuthenticationState.authenticated;
+    }
+    if (result.failure is AuthenticationFailed) {
       await _secureStorage.clearSession();
       return RouterAuthenticationState.unauthenticated;
-    } on RouterFailure {
-      await _secureStorage.clearSession();
-      return RouterAuthenticationState.failed;
     }
+    return RouterAuthenticationState.authenticated;
   }
 }
 
@@ -387,4 +433,7 @@ class RouterAuthServiceSelector implements RouterAuthService {
     }
     return _pending.restoreSession();
   }
+
+  @override
+  Future<bool> tryRelogin() => _attWifi.tryRelogin();
 }

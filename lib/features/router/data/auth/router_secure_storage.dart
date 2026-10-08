@@ -51,16 +51,32 @@ class RouterSecureStorage {
     return await _storage.read(key: rememberPasswordEnabledKey) == 'true';
   }
 
+  /// Password kept while signed in so a dead MiFi session can be refreshed.
+  Future<String?> readSignedInPassword() =>
+      _storage.read(key: rememberedPasswordKey);
+
+  Future<void> saveSignedInPassword(String password) async {
+    await _storage.write(key: rememberedPasswordKey, value: password);
+  }
+
+  Future<void> setRememberPasswordEnabled(bool enabled) async {
+    if (enabled) {
+      await _storage.write(key: rememberPasswordEnabledKey, value: 'true');
+      return;
+    }
+    await _storage.delete(key: rememberPasswordEnabledKey);
+  }
+
   Future<String?> readRememberedPassword() async {
     if (!await isRememberPasswordEnabled()) {
       return null;
     }
-    return _storage.read(key: rememberedPasswordKey);
+    return readSignedInPassword();
   }
 
   Future<void> saveRememberedPassword(String password) async {
-    await _storage.write(key: rememberPasswordEnabledKey, value: 'true');
-    await _storage.write(key: rememberedPasswordKey, value: password);
+    await setRememberPasswordEnabled(true);
+    await saveSignedInPassword(password);
   }
 
   Future<void> clearRememberedPassword() async {

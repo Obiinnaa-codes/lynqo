@@ -2,6 +2,8 @@ import '../config/router_profile_catalog.dart';
 import '../domain/router_failure.dart';
 import 'auth/att_wifi/att_wifi_auth_investigator.dart';
 import 'auth/att_wifi/att_wifi_auth_spec.dart';
+import 'auth/att_wifi/att_wifi_router_auth_service.dart';
+import 'auth/router_auth_service.dart';
 import 'auth/router_secure_storage.dart';
 import 'network/router_client_factory.dart';
 import 'network/router_http_response.dart';
@@ -9,12 +11,20 @@ import 'router_api_client.dart';
 
 class AttWifiDeviceActionsService {
   AttWifiDeviceActionsService({
-    required this._clientFactory,
-    required this._secureStorage,
-  });
+    required RouterClientFactory clientFactory,
+    required RouterSecureStorage secureStorage,
+    RouterAuthService? authService,
+  })  : _clientFactory = clientFactory,
+        _secureStorage = secureStorage,
+        _authService = authService ??
+            AttWifiRouterAuthService(
+              clientFactory: clientFactory,
+              secureStorage: secureStorage,
+            );
 
   final RouterClientFactory _clientFactory;
   final RouterSecureStorage _secureStorage;
+  final RouterAuthService _authService;
 
   /// Reboots the MiFi (`general.shutdown=restart`), matching the web admin menu.
   Future<void> rebootRouter() async {
@@ -50,6 +60,18 @@ class AttWifiDeviceActionsService {
   }
 
   Future<void> _submitAction(Map<String, String> data) async {
+    try {
+      await _submitActionOnce(data);
+    } on AuthenticationFailed {
+      final relogged = await _authService.tryRelogin();
+      if (!relogged) {
+        rethrow;
+      }
+      await _submitActionOnce(data);
+    }
+  }
+
+  Future<void> _submitActionOnce(Map<String, String> data) async {
     final sessionId = await _requireSessionId();
     final client = _clientFactory
         .createForProfile(RouterProfileCatalog.attWifi)

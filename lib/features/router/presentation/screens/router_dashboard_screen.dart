@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,7 @@ import '../../../widget_kit/presentation/lynqo_dashboard_view.dart';
 import '../../../widget_kit/presentation/lynqo_home_widget_reboot_link.dart';
 import '../../../widget_kit/presentation/lynqo_home_widget_sync_provider.dart';
 import '../../../widget_kit/presentation/router_throughput_provider.dart';
+import '../../domain/router_status.dart';
 import '../providers/router_auth_gate_provider.dart';
 import '../providers/router_dashboard_provider.dart';
 import '../providers/router_providers.dart';
@@ -66,11 +69,12 @@ Future<void> _confirmAndRebootMiFi(BuildContext context, WidgetRef ref) async {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          'Rebooting. Reconnect to the MiFi Wi‑Fi when it comes back online.',
+          'Rebooting. The dashboard will refresh when the MiFi is back.',
         ),
       ),
     );
-    ref.invalidate(routerDashboardProvider);
+    ref.read(dashboardAwaitingMiFiProvider.notifier).setAwaiting(true);
+    ref.read(attWifiDashboardServiceProvider).pauseForReboot();
   } catch (error) {
     if (!context.mounted) {
       return;
@@ -110,6 +114,8 @@ Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
 Future<void> _logout(BuildContext context, WidgetRef ref) async {
   await ref.read(routerAuthServiceProvider).logout();
   await LynqoHomeWidget.clearSnapshot();
+  ref.read(dashboardAwaitingMiFiProvider.notifier).setAwaiting(false);
+  ref.read(lastDashboardStatusProvider.notifier).clear();
   ref.read(routerAuthGateProvider.notifier).markLoggedOut();
   ref.invalidate(routerDashboardProvider);
   if (context.mounted) {
@@ -125,11 +131,55 @@ class RouterDashboardScreen extends ConsumerStatefulWidget {
       _RouterDashboardScreenState();
 }
 
-class _RouterDashboardScreenState extends ConsumerState<RouterDashboardScreen> {
+class _RouterDashboardScreenState extends ConsumerState<RouterDashboardScreen>
+    with WidgetsBindingObserver {
+  Object? _fetchError;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeRebootFromWidget());
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeRebootFromWidget();
+      unawaited(_refreshDashboard());
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      return;
+    }
+    unawaited(_refreshDashboard());
+  }
+
+  Future<void> _refreshDashboard() async {
+    try {
+      final status = await ref
+          .read(attWifiDashboardServiceProvider)
+          .fetchStatus();
+      ref.read(lastDashboardStatusProvider.notifier).setStatus(status);
+      ref.read(dashboardAwaitingMiFiProvider.notifier).setAwaiting(false);
+      if (mounted) {
+        setState(() => _fetchError = null);
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _fetchError = error);
+      if (ref.read(lastDashboardStatusProvider) != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    }
   }
 
   void _maybeRebootFromWidget() {
@@ -148,9 +198,18 @@ class _RouterDashboardScreenState extends ConsumerState<RouterDashboardScreen> {
         _maybeRebootFromWidget();
       }
     });
+    ref.listen(routerDashboardProvider, (previous, next) {
+      if (next.hasValue) {
+        ref.read(dashboardAwaitingMiFiProvider.notifier).setAwaiting(false);
+      }
+    });
     ref.watch(lynqoHomeWidgetSyncProvider);
     final statusAsync = ref.watch(routerDashboardProvider);
+    final lastStatus = ref.watch(lastDashboardStatusProvider);
+    final awaitingMiFi = ref.watch(dashboardAwaitingMiFiProvider);
     final routerHost = ref.watch(routerConfigProvider).host;
+    final status = lastStatus ??
+        (statusAsync.hasValue ? statusAsync.requireValue : null);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -169,7 +228,7 @@ class _RouterDashboardScreenState extends ConsumerState<RouterDashboardScreen> {
           ),
           IconButton(
             tooltip: 'Refresh',
-            onPressed: () => ref.invalidate(routerDashboardProvider),
+            onPressed: () => unawaited(_refreshDashboard()),
             icon: const Icon(Icons.refresh),
           ),
           IconButton(
@@ -180,29 +239,37 @@ class _RouterDashboardScreenState extends ConsumerState<RouterDashboardScreen> {
         ],
       ),
       body: SafeArea(
-        child: statusAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => _ErrorState(
-            message: error.toString(),
-            onRetry: () => ref.invalidate(routerDashboardProvider),
-          ),
-          data: (status) {
-            final networkSpeed = ref.watch(routerNetworkSpeedProvider);
-            final snapshot = RouterWidgetMappers.fromRouterStatus(
-              status,
-              routerHost: routerHost,
-              networkSpeed: networkSpeed,
-            );
-            return LynqoDashboardView(
-              snapshot: snapshot,
-              onRefresh: () async {
-                ref.invalidate(routerDashboardProvider);
-                await ref.read(routerDashboardProvider.future);
-              },
-            );
-          },
-        ),
+        child: status != null
+            ? _dashboardFromStatus(
+                status,
+                routerHost: routerHost,
+                awaitingMiFi: awaitingMiFi,
+              )
+            : _fetchError != null
+            ? _ErrorState(
+                message: _fetchError.toString(),
+                onRetry: () => unawaited(_refreshDashboard()),
+              )
+            : const Center(child: CircularProgressIndicator()),
       ),
+    );
+  }
+
+  Widget _dashboardFromStatus(
+    RouterStatus status, {
+    required String routerHost,
+    required bool awaitingMiFi,
+  }) {
+    final networkSpeed = ref.watch(routerNetworkSpeedProvider);
+    final snapshot = RouterWidgetMappers.fromRouterStatus(
+      status,
+      routerHost: routerHost,
+      networkSpeed: networkSpeed,
+    );
+    return LynqoDashboardView(
+      snapshot: snapshot,
+      awaitingMiFi: awaitingMiFi,
+      onRefresh: _refreshDashboard,
     );
   }
 }

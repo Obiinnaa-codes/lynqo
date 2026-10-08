@@ -27,8 +27,12 @@ class BatteryWidget extends StatelessWidget {
     final progress = data.progress ?? 0;
     final percentLabel =
         data.percent == null ? '—' : '${data.percent}%';
-    final ringColor =
-        data.percent == 100 ? LynqoWidgetColors.accentGreen : null;
+    final percent = data.percent;
+    final ringColor = percent == null
+        ? null
+        : percent > 20
+            ? LynqoWidgetColors.accentGreen
+            : LynqoWidgetColors.accentRed;
 
     return LynqoWidgetSurface(
       size: size,

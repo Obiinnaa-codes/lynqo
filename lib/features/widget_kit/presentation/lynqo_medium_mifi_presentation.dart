@@ -69,15 +69,18 @@ abstract final class LynqoMediumMiFiPresentation {
     return '$count';
   }
 
-  /// Full battery uses system green (reference home widget).
+  /// Green above 20%, red at or below 20%.
   static Color? batteryProgressColor(LynqoRouterWidgetSnapshot snapshot) {
     if (!isSynced(snapshot)) {
       return null;
     }
-    if (snapshot.battery.percent == 100) {
-      return LynqoWidgetColors.accentGreen;
+    final percent = snapshot.battery.percent;
+    if (percent == null) {
+      return null;
     }
-    return null;
+    return percent > 20
+        ? LynqoWidgetColors.accentGreen
+        : LynqoWidgetColors.accentRed;
   }
 
   static IconData batteryIcon(BatteryWidgetData battery) {

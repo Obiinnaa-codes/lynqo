@@ -94,17 +94,30 @@ void main() {
     expect(LynqoMediumMiFiPresentation.batteryPrimary(snapshot), '94%');
   });
 
-  test('battery ring is green at 100%', () {
-    final snapshot = synced(batteryPercent: 100);
+  test('battery ring is green above 20% and red at or below 20%', () {
     expect(
-      LynqoMediumMiFiPresentation.batteryProgressColor(snapshot),
+      LynqoMediumMiFiPresentation.batteryProgressColor(
+        synced(batteryPercent: 100),
+      ),
       LynqoWidgetColors.accentGreen,
     );
     expect(
       LynqoMediumMiFiPresentation.batteryProgressColor(
-        synced(batteryPercent: 94),
+        synced(batteryPercent: 21),
       ),
-      isNull,
+      LynqoWidgetColors.accentGreen,
+    );
+    expect(
+      LynqoMediumMiFiPresentation.batteryProgressColor(
+        synced(batteryPercent: 20),
+      ),
+      LynqoWidgetColors.accentRed,
+    );
+    expect(
+      LynqoMediumMiFiPresentation.batteryProgressColor(
+        synced(batteryPercent: 5),
+      ),
+      LynqoWidgetColors.accentRed,
     );
   });
 

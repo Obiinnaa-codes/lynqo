@@ -75,11 +75,8 @@ class LoginController {
         if (outcome.authenticationState ==
             RouterAuthenticationState.authenticated) {
           final storage = _ref.read(routerSecureStorageProvider);
-          if (rememberPassword) {
-            await storage.saveRememberedPassword(password);
-          } else {
-            await storage.clearRememberedPassword();
-          }
+          await storage.saveSignedInPassword(password);
+          await storage.setRememberPasswordEnabled(rememberPassword);
           _ref.read(routerAuthGateProvider.notifier).markAuthenticated();
           _ref.read(goRouterProvider).go(AppRoutes.routerDashboard);
           return const LoginConnectOutcome(didNavigate: true);

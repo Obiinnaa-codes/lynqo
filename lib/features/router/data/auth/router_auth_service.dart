@@ -17,6 +17,9 @@ abstract interface class RouterAuthService {
   Future<bool> isAuthenticated();
 
   Future<RouterAuthenticationState> restoreSession();
+
+  /// Logs in again with the stored password. True only if a new session was saved.
+  Future<bool> tryRelogin();
 }
 
 class PendingRouterAuthService implements RouterAuthService {
@@ -62,6 +65,9 @@ class PendingRouterAuthService implements RouterAuthService {
     }
     return RouterAuthenticationState.unauthenticated;
   }
+
+  @override
+  Future<bool> tryRelogin() async => false;
 
   String _buildPendingMessage(
     RouterDiagnostics? diagnostics,

@@ -9,6 +9,7 @@ final attWifiDashboardServiceProvider = Provider<AttWifiDashboardService>((ref) 
   return AttWifiDashboardService(
     clientFactory: ref.watch(routerClientFactoryProvider),
     secureStorage: ref.watch(routerSecureStorageProvider),
+    authService: ref.watch(routerAuthServiceProvider),
   );
 });
 
@@ -17,10 +18,39 @@ final attWifiDeviceActionsServiceProvider =
   return AttWifiDeviceActionsService(
     clientFactory: ref.watch(routerClientFactoryProvider),
     secureStorage: ref.watch(routerSecureStorageProvider),
+    authService: ref.watch(routerAuthServiceProvider),
   );
 });
 
-final routerDashboardProvider = StreamProvider<RouterStatus>((ref) {
-  final service = ref.watch(attWifiDashboardServiceProvider);
-  return service.watchStatus();
+class LastDashboardStatus extends Notifier<RouterStatus?> {
+  @override
+  RouterStatus? build() => null;
+
+  void setStatus(RouterStatus status) => state = status;
+
+  void clear() => state = null;
+}
+
+final lastDashboardStatusProvider =
+    NotifierProvider<LastDashboardStatus, RouterStatus?>(
+      LastDashboardStatus.new,
+    );
+
+final routerDashboardProvider = StreamProvider<RouterStatus>((ref) async* {
+  final service = ref.read(attWifiDashboardServiceProvider);
+  await for (final status in service.watchStatus()) {
+    ref.read(lastDashboardStatusProvider.notifier).setStatus(status);
+    yield status;
+  }
 });
+
+class DashboardAwaitingMiFi extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void setAwaiting(bool value) => state = value;
+}
+
+/// True after Restart until the dashboard poll succeeds again.
+final dashboardAwaitingMiFiProvider =
+    NotifierProvider<DashboardAwaitingMiFi, bool>(DashboardAwaitingMiFi.new);

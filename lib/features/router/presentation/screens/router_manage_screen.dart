@@ -14,26 +14,28 @@ class RouterManageScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statusAsync = ref.watch(routerDashboardProvider);
+    final status = ref.watch(lastDashboardStatusProvider) ??
+        (statusAsync.hasValue ? statusAsync.requireValue : null);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Manage MiFi')),
       body: SafeArea(
-        child: statusAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text(error.toString())),
-          data: (status) => ListView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            children: [
-              const _SectionTitle('Wi‑Fi'),
-              const SizedBox(height: AppSpacing.sm),
-              _WifiSection(status: status, ref: ref),
-              const SizedBox(height: AppSpacing.xl),
-              const _SectionTitle('Messages'),
-              const SizedBox(height: AppSpacing.sm),
-              _MessagesSection(status: status),
-            ],
-          ),
-        ),
+        child: status != null
+            ? ListView(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                children: [
+                  const _SectionTitle('Wi‑Fi'),
+                  const SizedBox(height: AppSpacing.sm),
+                  _WifiSection(status: status, ref: ref),
+                  const SizedBox(height: AppSpacing.xl),
+                  const _SectionTitle('Messages'),
+                  const SizedBox(height: AppSpacing.sm),
+                  _MessagesSection(status: status),
+                ],
+              )
+            : statusAsync.hasError
+            ? Center(child: Text(statusAsync.error.toString()))
+            : const Center(child: CircularProgressIndicator()),
       ),
     );
   }
@@ -80,7 +82,10 @@ class _WifiSection extends StatelessWidget {
   Future<void> _setProfile(Future<void> Function() action) async {
     try {
       await action();
-      ref.invalidate(routerDashboardProvider);
+      final status = await ref
+          .read(attWifiDashboardServiceProvider)
+          .fetchStatus();
+      ref.read(lastDashboardStatusProvider.notifier).setStatus(status);
     } catch (error) {
       if (ref.context.mounted) {
         ScaffoldMessenger.of(ref.context).showSnackBar(
@@ -147,7 +152,10 @@ class _MessagesSection extends ConsumerWidget {
   ) async {
     try {
       await action();
-      ref.invalidate(routerDashboardProvider);
+      final status = await ref
+          .read(attWifiDashboardServiceProvider)
+          .fetchStatus();
+      ref.read(lastDashboardStatusProvider.notifier).setStatus(status);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(successMessage)),

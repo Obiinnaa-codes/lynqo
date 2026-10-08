@@ -16,29 +16,28 @@ final lynqoHomeWidgetSyncProvider = Provider<void>((ref) {
     return;
   }
 
-  ref.listen(routerDashboardProvider, (previous, next) {
-    next.whenOrNull(
-      data: (status) {
-        final routerHost = ref.read(routerConfigProvider).host;
-        final networkSpeed = ref.read(routerNetworkSpeedProvider);
-        final snapshot = RouterWidgetMappers.fromRouterStatus(
-          status,
-          routerHost: routerHost,
-          networkSpeed: networkSpeed,
-        );
-        unawaited(() async {
-          final sessionId = await ref
-              .read(routerSecureStorageProvider)
-              .readAttWifiSessionId();
-          final attWifi = RouterProfileCatalog.attWifi;
-          await LynqoHomeWidget.publishSnapshot(
-            snapshot,
-            rebootSessionId: sessionId,
-            rebootHost: attWifi.host,
-            rebootScheme: attWifi.scheme,
-          );
-        }());
-      },
+  ref.listen(lastDashboardStatusProvider, (previous, next) {
+    if (next == null) {
+      return;
+    }
+    final routerHost = ref.read(routerConfigProvider).host;
+    final networkSpeed = ref.read(routerNetworkSpeedProvider);
+    final snapshot = RouterWidgetMappers.fromRouterStatus(
+      next,
+      routerHost: routerHost,
+      networkSpeed: networkSpeed,
     );
+    unawaited(() async {
+      final sessionId = await ref
+          .read(routerSecureStorageProvider)
+          .readAttWifiSessionId();
+      final attWifi = RouterProfileCatalog.attWifi;
+      await LynqoHomeWidget.publishSnapshot(
+        snapshot,
+        rebootSessionId: sessionId,
+        rebootHost: attWifi.host,
+        rebootScheme: attWifi.scheme,
+      );
+    }());
   });
 });

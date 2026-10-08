@@ -15,7 +15,7 @@ abstract final class LynqoHomeWidget {
   static const rebootHostKey = 'lynqo_widget_reboot_host';
   static const rebootSchemeKey = 'lynqo_widget_reboot_scheme';
   /// Must match `kind` on `LynqoMiFiHomeWidget` in ios/LynqoWidget/LynqoWidget.swift.
-  static const iOSHomeWidgetKind = 'LynqoMiFiHomeWidget11';
+  static const iOSHomeWidgetKind = 'LynqoMiFiHomeWidget12';
   /// Must match `kind` on `LynqoMiFiDevicesWidget` in ios/LynqoWidget/LynqoDevicesWidget.swift.
   static const iOSDevicesWidgetKind = 'LynqoMiFiDevicesWidget1';
   /// `homeWidget` query param required by the home_widget iOS plugin.

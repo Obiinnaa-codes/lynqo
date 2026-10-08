@@ -9,6 +9,8 @@ private let rebootDeepLink = "lynqo://reboot?homeWidget"
 
 /// Sync with [LynqoWidgetColors.accentGreen] in Flutter.
 private let lynqoAccentGreen = Color(red: 0.204, green: 0.780, blue: 0.349)
+/// Sync with [LynqoWidgetColors.accentRed] in Flutter.
+private let lynqoAccentRed = Color(red: 1, green: 0.231, blue: 0.188)
 
 // Sync with lib/features/widget_kit/theme/lynqo_widget_colors.dart + lynqo_widget_dimensions.dart
 struct LynqoTokens {
@@ -107,8 +109,8 @@ struct LynqoSnapshot {
   var restartSecondaryLabel: String { "" }
 
   var batteryAccentColor: Color? {
-    guard batteryPercent == 100 else { return nil }
-    return lynqoAccentGreen
+    guard isSynced, let percent = batteryPercent else { return nil }
+    return percent > 20 ? lynqoAccentGreen : lynqoAccentRed
   }
 
   static let empty = LynqoSnapshot(
@@ -560,7 +562,7 @@ struct LynqoWidgetRootView: View {
 
 // WidgetKit caches aggressively; bump [kind] when layouts change so the gallery picks up new binaries.
 struct LynqoMiFiHomeWidget: Widget {
-  let kind: String = "LynqoMiFiHomeWidget11"
+  let kind: String = "LynqoMiFiHomeWidget12"
 
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: LynqoProvider()) { entry in

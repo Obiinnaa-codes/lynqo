@@ -18,6 +18,7 @@ abstract final class LynqoWidgetColors {
   static const Color accentOrange = Color(0xFFFF9500);
   static const Color accentOrangeLight = Color(0xFFFFCC00);
   static const Color accentGreen = Color(0xFF34C759);
+  static const Color accentRed = Color(0xFFFF3B30);
 
   static const Color chartBarInactive = Color(0xFFE5E5EA);
   static const Color chartBarInactiveDark = Color(0x4DFFFFFF);

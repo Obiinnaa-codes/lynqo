@@ -13,10 +13,12 @@ class LynqoDashboardView extends StatelessWidget {
     super.key,
     required this.snapshot,
     required this.onRefresh,
+    this.awaitingMiFi = false,
   });
 
   final LynqoRouterWidgetSnapshot snapshot;
   final Future<void> Function() onRefresh;
+  final bool awaitingMiFi;
 
   LynqoWidgetTheme _widgetTheme(BuildContext context) {
     final brightness = MediaQuery.platformBrightnessOf(context);
@@ -41,6 +43,14 @@ class LynqoDashboardView extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.lg),
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
+            if (awaitingMiFi) ...[
+              Text(
+                'Waiting for the MiFi to come back…',
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             LynqoWidgetGrid(
               snapshot: snapshot,
               entries: LynqoDashboardLayout.entries,

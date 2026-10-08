@@ -484,7 +484,7 @@ void main() {
     expect(result.failure, isA<ConnectionTimeout>());
   });
 
-  test('expired session on restore', () async {
+  test('expired session on restore without password signs out', () async {
     FlutterSecureStorage.setMockInitialValues({
       RouterSecureStorage.sessionActiveKey: 'true',
       RouterSecureStorage.sessionProfileKey: AttWifiAuthSpec.profileId,
@@ -502,8 +502,99 @@ void main() {
     );
 
     final state = await service.restoreSession();
-    expect(state, RouterAuthenticationState.failed);
+    expect(state, RouterAuthenticationState.unauthenticated);
     expect(await service.isAuthenticated(), isFalse);
+  });
+
+  test('unreachable MiFi on restore keeps local sign-in', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      RouterSecureStorage.sessionActiveKey: 'true',
+      RouterSecureStorage.sessionProfileKey: AttWifiAuthSpec.profileId,
+      RouterSecureStorage.attSessionIdKey: fakeSessionId,
+    });
+
+    final service = buildService(
+      resetSecureStorage: false,
+      handler: (_) async {
+        throw DioException(
+          requestOptions: RequestOptions(path: '/api/model.json'),
+          type: DioExceptionType.connectionError,
+        );
+      },
+    );
+
+    final state = await service.restoreSession();
+    expect(state, RouterAuthenticationState.authenticated);
+    expect(await service.isAuthenticated(), isTrue);
+    expect(
+      await RouterSecureStorage().readAttWifiSessionId(),
+      fakeSessionId,
+    );
+  });
+
+  test('expired session on restore silently re-logins', () async {
+    const expiredSessionId = 'EXPIRED-SESSION-ID';
+    var authenticated = false;
+    FlutterSecureStorage.setMockInitialValues({
+      RouterSecureStorage.sessionActiveKey: 'true',
+      RouterSecureStorage.sessionProfileKey: AttWifiAuthSpec.profileId,
+      RouterSecureStorage.attSessionIdKey: expiredSessionId,
+      RouterSecureStorage.rememberedPasswordKey: fakePassword,
+    });
+
+    final service = buildService(
+      resetSecureStorage: false,
+      handler: (options) async {
+        if (options.path == '/' && options.method == 'GET') {
+          return bootstrapResponse();
+        }
+        if (options.path.contains('model.json')) {
+          final cookie = options.headers['Cookie'] as String? ?? '';
+          if (cookie.contains(expiredSessionId) && !authenticated) {
+            return mockResponse(statusCode: 403, body: '{"errno": 1}');
+          }
+          return mockResponse(
+            statusCode: 200,
+            body: authenticated
+                ? '{"session": {"secToken": "$fakeSecToken", "userRole": "${AttWifiAuthSpec.adminUserRole}"}}'
+                : '{"session": {"secToken": "$fakeSecToken", "userRole": "${AttWifiAuthSpec.guestUserRole}"}}',
+          );
+        }
+        if (options.path == AttWifiAuthSpec.authenticationPath &&
+            options.method == 'POST') {
+          authenticated = true;
+          return mockResponse(statusCode: 200, body: '{"success": true}');
+        }
+        return mockResponse(statusCode: 404);
+      },
+    );
+
+    final state = await service.restoreSession();
+    expect(state, RouterAuthenticationState.authenticated);
+    expect(await service.isAuthenticated(), isTrue);
+    expect(
+      await RouterSecureStorage().readAttWifiSessionId(),
+      fakeSessionId,
+    );
+  });
+
+  test('logout without remember password clears stored password', () async {
+    FlutterSecureStorage.setMockInitialValues({
+      RouterSecureStorage.sessionActiveKey: 'true',
+      RouterSecureStorage.sessionProfileKey: AttWifiAuthSpec.profileId,
+      RouterSecureStorage.attSessionIdKey: fakeSessionId,
+      RouterSecureStorage.rememberedPasswordKey: fakePassword,
+    });
+    final storage = RouterSecureStorage();
+    final service = buildService(
+      resetSecureStorage: false,
+      handler: (_) async => mockResponse(statusCode: 404),
+    );
+
+    await service.logout();
+
+    expect(await storage.isSessionActive(), isFalse);
+    expect(await storage.readSignedInPassword(), isNull);
   });
 
   test('missing session on restore', () async {
