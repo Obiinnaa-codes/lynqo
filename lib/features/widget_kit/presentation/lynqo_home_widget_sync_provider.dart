@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../router/config/router_profile_catalog.dart';
 import '../../router/presentation/providers/router_dashboard_provider.dart';
 import '../../router/presentation/providers/router_providers.dart';
 import '../data/lynqo_home_widget.dart';
@@ -25,7 +26,18 @@ final lynqoHomeWidgetSyncProvider = Provider<void>((ref) {
           routerHost: routerHost,
           networkSpeed: networkSpeed,
         );
-        unawaited(LynqoHomeWidget.publishSnapshot(snapshot));
+        unawaited(() async {
+          final sessionId = await ref
+              .read(routerSecureStorageProvider)
+              .readAttWifiSessionId();
+          final attWifi = RouterProfileCatalog.attWifi;
+          await LynqoHomeWidget.publishSnapshot(
+            snapshot,
+            rebootSessionId: sessionId,
+            rebootHost: attWifi.host,
+            rebootScheme: attWifi.scheme,
+          );
+        }());
       },
     );
   });

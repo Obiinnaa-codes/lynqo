@@ -1,3 +1,4 @@
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -526,29 +527,24 @@ struct LynqoMediumWidgetView: View {
 
   @ViewBuilder
   private var restartColumn: some View {
+    let column = LynqoMetricColumn(
+      tokens: tokens,
+      progress: LynqoHomeTypography.trackOnlyRingProgress,
+      systemIcon: "power",
+      primary: "Restart",
+      secondary: snapshot.restartSecondaryLabel,
+      ringDiameter: ringSize,
+      fullCircle: true
+    )
     if #available(iOSApplicationExtension 17.0, *) {
-      Link(destination: URL(string: rebootDeepLink)!) {
-        LynqoMetricColumn(
-          tokens: tokens,
-          progress: LynqoHomeTypography.trackOnlyRingProgress,
-          systemIcon: "power",
-          primary: "Restart",
-          secondary: snapshot.restartSecondaryLabel,
-          ringDiameter: ringSize,
-          fullCircle: true
-        )
+      Button(intent: RebootMiFiIntent()) {
+        column
       }
       .buttonStyle(.plain)
     } else {
-      LynqoMetricColumn(
-        tokens: tokens,
-        progress: LynqoHomeTypography.trackOnlyRingProgress,
-        systemIcon: "power",
-        primary: "Restart",
-        secondary: "Open Lynqo",
-        ringDiameter: ringSize,
-        fullCircle: true
-      )
+      Link(destination: URL(string: rebootDeepLink)!) {
+        column
+      }
     }
   }
 }
