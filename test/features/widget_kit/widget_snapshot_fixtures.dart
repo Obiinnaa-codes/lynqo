@@ -1,3 +1,4 @@
+import 'package:lynqo/features/router/domain/router_status.dart';
 import 'package:lynqo/features/widget_kit/domain/lynqo_router_widget_snapshot.dart';
 import 'package:lynqo/features/widget_kit/domain/models/widget_view_models.dart';
 
@@ -36,5 +37,13 @@ LynqoRouterWidgetSnapshot syncedWidgetSnapshotFixture() {
       dataUsage: dataUsage,
       devices: ConnectedDevicesWidgetData(count: 3),
     ),
+  );
+}
+
+RouterStatus routerStatusFixture() {
+  return const RouterStatus(
+    wifiSsid: 'MyHotspot',
+    wifiStatus: 'On',
+    wifiBandLabel: '5 GHz',
   );
 }

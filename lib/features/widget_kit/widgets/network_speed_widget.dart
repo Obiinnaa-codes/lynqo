@@ -39,17 +39,25 @@ class NetworkSpeedWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: LynqoWidgetMetric(
-                    label: 'Download',
-                    value: data.downloadMbps ?? '—',
-                    size: LynqoWidgetSize.small,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.topLeft,
+                    child: LynqoWidgetMetric(
+                      label: 'Download',
+                      value: data.downloadMbps ?? '—',
+                      size: LynqoWidgetSize.medium,
+                    ),
                   ),
                 ),
                 Expanded(
-                  child: LynqoWidgetMetric(
-                    label: 'Upload',
-                    value: data.uploadMbps ?? '—',
-                    size: LynqoWidgetSize.small,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.topLeft,
+                    child: LynqoWidgetMetric(
+                      label: 'Upload',
+                      value: data.uploadMbps ?? '—',
+                      size: LynqoWidgetSize.medium,
+                    ),
                   ),
                 ),
               ],

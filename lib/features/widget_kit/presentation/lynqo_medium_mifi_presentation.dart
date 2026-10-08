@@ -37,9 +37,6 @@ abstract final class LynqoMediumMiFiPresentation {
   }
 
   static String dataSecondary(LynqoRouterWidgetSnapshot snapshot) {
-    if (snapshot.dataUsage.planUnavailable) {
-      return 'Data unavailable';
-    }
     final limit = snapshot.dataUsage.limitSummary;
     if (limit != null && limit.isNotEmpty) {
       return 'of $limit';
@@ -78,9 +75,7 @@ abstract final class LynqoMediumMiFiPresentation {
     if (percent == null) {
       return null;
     }
-    return percent > 20
-        ? LynqoWidgetColors.accentGreen
-        : LynqoWidgetColors.accentRed;
+    return LynqoWidgetColors.batteryLevel(percent);
   }
 
   static IconData batteryIcon(BatteryWidgetData battery) {

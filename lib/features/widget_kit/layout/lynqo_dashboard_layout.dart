@@ -8,27 +8,12 @@ abstract final class LynqoDashboardLayout {
     LynqoWidgetGridEntry(
       type: LynqoWidgetType.routerOverview,
       size: LynqoWidgetSize.large,
-      columnSpan: 2,
+      columnSpan: 3,
     ),
     LynqoWidgetGridEntry(
-      type: LynqoWidgetType.dataUsage,
+      type: LynqoWidgetType.smsMessages,
       size: LynqoWidgetSize.medium,
-      columnSpan: 2,
-    ),
-    LynqoWidgetGridEntry(
-      type: LynqoWidgetType.devices,
-      size: LynqoWidgetSize.medium,
-      columnSpan: 2,
-    ),
-    LynqoWidgetGridEntry(
-      type: LynqoWidgetType.connection,
-      size: LynqoWidgetSize.medium,
-      columnSpan: 2,
-    ),
-    LynqoWidgetGridEntry(
-      type: LynqoWidgetType.speed,
-      size: LynqoWidgetSize.medium,
-      columnSpan: 2,
+      columnSpan: 3,
     ),
   ];
 }

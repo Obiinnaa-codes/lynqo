@@ -14,4 +14,9 @@ void main() {
     expect(LynqoWidgetDimensions.gridColumnsForWidth(400), 2);
     expect(LynqoWidgetDimensions.gridColumnsForWidth(800), 3);
   });
+
+  test('overview metrics wrap on narrow tiles', () {
+    expect(LynqoWidgetDimensions.metricColumnsForWidth(240), 2);
+    expect(LynqoWidgetDimensions.metricColumnsForWidth(360), 3);
+  });
 }

@@ -89,9 +89,6 @@ struct LynqoSnapshot {
   }
 
   var dataSecondaryLabel: String {
-    if planUnavailable {
-      return "Data unavailable"
-    }
     if !dataLimitSummary.isEmpty {
       return "of \(dataLimitSummary)"
     }

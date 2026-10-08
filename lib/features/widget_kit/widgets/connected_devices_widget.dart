@@ -69,13 +69,23 @@ class _MediumDevices extends StatelessWidget {
               const LynqoWidgetCaption(text: 'devices'),
             ],
           ),
-          const Spacer(),
-          for (var i = 0; i < 4; i++) ...[
-            if (i > 0) const SizedBox(width: 8),
-            LynqoWidgetDeviceOrb(
-              label: i < orbs.length ? orbs[i] : null,
+          const SizedBox(width: 8),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Row(
+                children: [
+                  for (var i = 0; i < 4; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    LynqoWidgetDeviceOrb(
+                      label: i < orbs.length ? orbs[i] : null,
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ],
+          ),
         ],
       );
     }

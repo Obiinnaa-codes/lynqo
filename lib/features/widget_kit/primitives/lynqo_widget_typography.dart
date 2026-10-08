@@ -37,7 +37,7 @@ class LynqoWidgetPrimaryValue extends StatelessWidget {
     return Text(
       text,
       style: theme.primaryValueStyle(size),
-      maxLines: 2,
+      maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
   }

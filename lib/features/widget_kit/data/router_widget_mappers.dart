@@ -59,12 +59,12 @@ abstract final class RouterWidgetMappers {
 
     final planUnavailable = status.dataLimitValid == false;
     String? comparisonCaption;
-    if (planUnavailable) {
-      comparisonCaption = 'Data unavailable';
-    } else if (status.dataValidState != null && status.planTitle != null) {
-      comparisonCaption = '${status.planTitle} · ${status.dataValidState}';
-    } else if (status.planTitle != null) {
-      comparisonCaption = status.planTitle;
+    if (!planUnavailable) {
+      if (status.dataValidState != null && status.planTitle != null) {
+        comparisonCaption = '${status.planTitle} · ${status.dataValidState}';
+      } else if (status.planTitle != null) {
+        comparisonCaption = status.planTitle;
+      }
     }
 
     return DataUsageWidgetData(

@@ -20,6 +20,11 @@ abstract final class LynqoWidgetColors {
   static const Color accentGreen = Color(0xFF34C759);
   static const Color accentRed = Color(0xFFFF3B30);
 
+  /// Green above 20%, red at 20% and below.
+  static Color batteryLevel(int percent) {
+    return percent > 20 ? accentGreen : accentRed;
+  }
+
   static const Color chartBarInactive = Color(0xFFE5E5EA);
   static const Color chartBarInactiveDark = Color(0x4DFFFFFF);
   static const Color dividerDark = Color(0x33FFFFFF);

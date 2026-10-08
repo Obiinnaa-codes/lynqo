@@ -30,21 +30,28 @@ abstract final class LynqoWidgetDimensions {
       case LynqoWidgetSize.small:
         return 16;
       case LynqoWidgetSize.medium:
-        return 20;
+        return 16;
       case LynqoWidgetSize.large:
-        return 24;
+        return 20;
     }
   }
 
   static double minHeight(LynqoWidgetSize size) {
     switch (size) {
       case LynqoWidgetSize.small:
-        return 148;
+        return 132;
       case LynqoWidgetSize.medium:
-        return 220;
+        return 168;
       case LynqoWidgetSize.large:
-        return 320;
+        return 220;
     }
+  }
+
+  static int metricColumnsForWidth(double width) {
+    if (width < 280) {
+      return 2;
+    }
+    return 3;
   }
 
   static double ringDiameter(LynqoWidgetSize size) {

@@ -7,6 +7,7 @@ import '../primitives/lynqo_widget_icon.dart';
 import '../primitives/lynqo_widget_metric.dart';
 import '../primitives/lynqo_widget_surface.dart';
 import '../primitives/lynqo_widget_typography.dart';
+import '../sizing/lynqo_widget_dimensions.dart';
 import '../sizing/lynqo_widget_size.dart';
 
 class RouterOverviewWidget extends StatelessWidget {
@@ -22,14 +23,15 @@ class RouterOverviewWidget extends StatelessWidget {
     final battery = data.battery;
     final batteryPercent = battery?.percent;
     final batteryProgress = battery?.progress ?? 0;
+    final devices = data.devices?.devices ?? const [];
 
     return LynqoWidgetSurface(
       size: LynqoWidgetSize.large,
-      child: SingleChildScrollView(
-        physics: const ClampingScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      fitContent: true,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           Row(
             children: [
               const LynqoWidgetIcon(icon: Icons.router_outlined, size: 18),
@@ -44,49 +46,66 @@ class RouterOverviewWidget extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 24),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: LynqoWidgetMetric(
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = LynqoWidgetDimensions.metricColumnsForWidth(
+                constraints.maxWidth,
+              );
+              const gap = 12.0;
+              final itemWidth =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              final metrics = [
+                LynqoWidgetMetric(
                   label: 'Battery',
                   value: batteryPercent == null ? '—' : '$batteryPercent%',
                   subtitle: battery?.statusLabel,
-                  size: LynqoWidgetSize.small,
+                  size: LynqoWidgetSize.medium,
                 ),
-              ),
-              Expanded(
-                child: LynqoWidgetMetric(
+                LynqoWidgetMetric(
                   label: 'Signal',
                   value: data.signal?.strengthPercent == null
                       ? '—'
                       : '${data.signal!.strengthPercent}%',
                   subtitle: data.signal?.qualityLabel,
-                  size: LynqoWidgetSize.small,
+                  size: LynqoWidgetSize.medium,
                 ),
-              ),
-              Expanded(
-                child: LynqoWidgetMetric(
+                LynqoWidgetMetric(
                   label: 'Data',
                   value: data.dataUsage?.usedSummary ?? '—',
                   subtitle: data.dataUsage?.remainingSummary,
-                  size: LynqoWidgetSize.small,
+                  size: LynqoWidgetSize.medium,
                 ),
-              ),
-            ],
+              ];
+
+              return Wrap(
+                spacing: gap,
+                runSpacing: 16,
+                children: [
+                  for (final metric in metrics)
+                    SizedBox(
+                      width: itemWidth,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.topLeft,
+                        child: metric,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
           const LynqoWidgetDivider(),
           const SizedBox(height: 8),
           LynqoWidgetCaption(text: data.connection?.headline ?? 'Connection'),
           if (data.connection?.statusLabel != null)
             LynqoWidgetSecondaryText(text: data.connection!.statusLabel!),
-          if (data.devices != null && data.devices!.devices.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            for (final device in data.devices!.devices.take(3)) ...[
+          if (devices.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            for (final device in devices.take(3)) ...[
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
                   children: [
                     Expanded(
@@ -101,7 +120,6 @@ class RouterOverviewWidget extends StatelessWidget {
             ],
           ],
         ],
-        ),
       ),
     );
   }

@@ -40,7 +40,7 @@ void main() {
     );
   }
 
-  test('presentation shows data unavailable when plan is invalid', () {
+  test('presentation keeps used amount when plan is invalid', () {
     final snapshot = synced(
       usedSummary: '75.6 MB',
       usagePercent: null,
@@ -50,6 +50,7 @@ void main() {
       battery: const BatteryWidgetData(),
       dataUsage: const DataUsageWidgetData(
         usedSummary: '75.6 MB',
+        remainingSummary: '39.7 MB remaining',
         planUnavailable: true,
       ),
       signal: const SignalWidgetData(),
@@ -61,7 +62,7 @@ void main() {
     expect(LynqoMediumMiFiPresentation.dataPrimary(unavailable), '75.6 MB');
     expect(
       LynqoMediumMiFiPresentation.dataSecondary(unavailable),
-      'Data unavailable',
+      '39.7 MB remaining',
     );
     expect(LynqoMediumMiFiPresentation.dataPrimary(snapshot), isNot('—'));
   });
@@ -92,6 +93,12 @@ void main() {
     );
     expect(LynqoMediumMiFiPresentation.batteryPrimary(unsynced), '—');
     expect(LynqoMediumMiFiPresentation.batteryPrimary(snapshot), '94%');
+  });
+
+  test('battery vial fill is green above 20% and red at or below 20%', () {
+    expect(LynqoWidgetColors.batteryLevel(21), LynqoWidgetColors.accentGreen);
+    expect(LynqoWidgetColors.batteryLevel(20), LynqoWidgetColors.accentRed);
+    expect(LynqoWidgetColors.batteryLevel(5), LynqoWidgetColors.accentRed);
   });
 
   test('battery ring is green above 20% and red at or below 20%', () {

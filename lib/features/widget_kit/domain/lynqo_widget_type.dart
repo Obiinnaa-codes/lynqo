@@ -5,5 +5,7 @@ enum LynqoWidgetType {
   connection,
   devices,
   speed,
+  wifiProfile,
+  smsMessages,
   routerOverview,
 }

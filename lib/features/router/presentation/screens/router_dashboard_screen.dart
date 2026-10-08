@@ -227,11 +227,6 @@ class _RouterDashboardScreenState extends ConsumerState<RouterDashboardScreen>
             icon: const Icon(Icons.restart_alt),
           ),
           IconButton(
-            tooltip: 'Refresh',
-            onPressed: () => unawaited(_refreshDashboard()),
-            icon: const Icon(Icons.refresh),
-          ),
-          IconButton(
             tooltip: 'Log out',
             onPressed: () => _confirmLogout(context, ref),
             icon: const Icon(Icons.logout),
@@ -268,6 +263,7 @@ class _RouterDashboardScreenState extends ConsumerState<RouterDashboardScreen>
     );
     return LynqoDashboardView(
       snapshot: snapshot,
+      routerStatus: status,
       awaitingMiFi: awaitingMiFi,
       onRefresh: _refreshDashboard,
     );

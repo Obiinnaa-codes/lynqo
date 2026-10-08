@@ -28,11 +28,8 @@ class BatteryWidget extends StatelessWidget {
     final percentLabel =
         data.percent == null ? '—' : '${data.percent}%';
     final percent = data.percent;
-    final ringColor = percent == null
-        ? null
-        : percent > 20
-            ? LynqoWidgetColors.accentGreen
-            : LynqoWidgetColors.accentRed;
+    final ringColor =
+        percent == null ? null : LynqoWidgetColors.batteryLevel(percent);
 
     return LynqoWidgetSurface(
       size: size,
@@ -53,6 +50,7 @@ class BatteryWidget extends StatelessWidget {
         LynqoWidgetSize.large => _LargeLayout(
           progress: progress,
           percentLabel: percentLabel,
+          progressColor: ringColor,
           data: data,
         ),
       },
@@ -155,11 +153,13 @@ class _LargeLayout extends StatelessWidget {
   const _LargeLayout({
     required this.progress,
     required this.percentLabel,
+    this.progressColor,
     required this.data,
   });
 
   final double progress;
   final String percentLabel;
+  final Color? progressColor;
   final BatteryWidgetData data;
 
   @override
@@ -180,6 +180,7 @@ class _LargeLayout extends StatelessWidget {
             LynqoWidgetRing(
               progress: progress,
               diameter: ring,
+              progressColor: progressColor,
               center: LynqoWidgetIcon(
                 icon: data.isCharging == true
                     ? Icons.battery_charging_full

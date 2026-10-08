@@ -72,6 +72,22 @@ abstract final class LynqoWidgetRegistry {
       supportedSizes: LynqoWidgetSize.values,
     ),
     LynqoWidgetDefinition(
+      type: LynqoWidgetType.wifiProfile,
+      id: 'wifi_profile',
+      displayName: 'Wi‑Fi profile',
+      description: 'Switch 2.4 GHz or 5 GHz radio profile',
+      icon: Icons.wifi,
+      supportedSizes: [LynqoWidgetSize.medium],
+    ),
+    LynqoWidgetDefinition(
+      type: LynqoWidgetType.smsMessages,
+      id: 'sms_messages',
+      displayName: 'Messages',
+      description: 'SMS stored on the MiFi',
+      icon: Icons.sms_outlined,
+      supportedSizes: [LynqoWidgetSize.medium],
+    ),
+    LynqoWidgetDefinition(
       type: LynqoWidgetType.routerOverview,
       id: 'router_overview',
       displayName: 'Router overview',

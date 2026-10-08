@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/lynqo_widget_colors.dart';
 import '../theme/lynqo_widget_theme.dart';
 
 class LynqoWidgetBatteryPill extends StatelessWidget {
@@ -18,12 +19,13 @@ class LynqoWidgetBatteryPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = LynqoWidgetTheme.of(context);
     final clamped = progress.clamp(0.0, 1.0);
+    final percent = (clamped * 100).round();
 
     return CustomPaint(
       size: Size(width, height),
       painter: _BatteryPillPainter(
         progress: clamped,
-        fillColor: theme.accentRing,
+        fillColor: LynqoWidgetColors.batteryLevel(percent),
         outlineColor: theme.primaryText.withValues(alpha: 0.5),
       ),
     );
@@ -71,6 +73,7 @@ class _BatteryPillPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BatteryPillPainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress ||
+        oldDelegate.fillColor != fillColor;
   }
 }

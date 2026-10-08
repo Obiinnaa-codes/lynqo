@@ -39,7 +39,7 @@ void main() {
     expect(snapshot.dataUsage.usedSummary, '75.6 MB');
     expect(snapshot.dataUsage.planUnavailable, isTrue);
     expect(snapshot.dataUsage.limitSummary, isNull);
-    expect(snapshot.dataUsage.comparisonCaption, 'Data unavailable');
+    expect(snapshot.dataUsage.comparisonCaption, isNull);
   });
 
   test('formatMbps', () {
